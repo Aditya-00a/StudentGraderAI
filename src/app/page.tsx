@@ -14,6 +14,7 @@ type HomePageProps = {
   searchParams: Promise<{
     created?: string;
     error?: string;
+    reason?: string;
   }>;
 };
 
@@ -103,7 +104,18 @@ export default async function Home({ searchParams }: HomePageProps) {
 
       {params.error ? (
         <section className="glass-panel rounded-[1.5rem] border border-rose-300/70 bg-rose-50/80 px-5 py-4 text-sm leading-7 text-rose-950">
-          There was a problem saving the assignment. Check the form and try again.
+          {params.reason === "supabase-storage"
+            ? "Assignment save failed while writing to Supabase Storage. Check that the bucket exists and the service role key is correct."
+            : params.reason === "supabase-env"
+              ? "Supabase storage is not configured on the server. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+              : params.reason === "gemini-env"
+                ? "Gemini is not configured on the server. Add GEMINI_API_KEY, or type the rubric manually and try again."
+                : "There was a problem saving the assignment. Check the form and try again."}
+          <div className="mt-3">
+            <Link className="underline" href="/professor-debug">
+              Open deployment diagnostics
+            </Link>
+          </div>
         </section>
       ) : null}
 

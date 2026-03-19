@@ -42,24 +42,41 @@ export async function POST(request: Request) {
     return NextResponse.redirect(redirectUrl, 303);
   }
 
-  let { gradingFocus, rubric } = parsed.data;
+  try {
+    let { gradingFocus, rubric } = parsed.data;
 
-  if (!gradingFocus || !rubric) {
-    const suggestion = await generateRubricSuggestion({
-      title: parsed.data.title,
-      courseCode: parsed.data.courseCode,
-      description: parsed.data.description,
-      maxScore: parsed.data.maxScore,
+    if (!gradingFocus || !rubric) {
+      const suggestion = await generateRubricSuggestion({
+        title: parsed.data.title,
+        courseCode: parsed.data.courseCode,
+        description: parsed.data.description,
+        maxScore: parsed.data.maxScore,
+      });
+      gradingFocus = gradingFocus || suggestion.gradingFocus;
+      rubric = rubric || suggestion.rubric;
+    }
+
+    await createAssignment({
+      ...parsed.data,
+      gradingFocus,
+      rubric,
     });
-    gradingFocus = gradingFocus || suggestion.gradingFocus;
-    rubric = rubric || suggestion.rubric;
-  }
+    redirectUrl.searchParams.set("created", "assignment");
+    return NextResponse.redirect(redirectUrl, 303);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown assignment save error.";
+    redirectUrl.searchParams.set("error", "assignment-save");
 
-  await createAssignment({
-    ...parsed.data,
-    gradingFocus,
-    rubric,
-  });
-  redirectUrl.searchParams.set("created", "assignment");
-  return NextResponse.redirect(redirectUrl, 303);
+    if (/Supabase upload failed/i.test(message)) {
+      redirectUrl.searchParams.set("reason", "supabase-storage");
+    } else if (/Supabase storage is not configured/i.test(message)) {
+      redirectUrl.searchParams.set("reason", "supabase-env");
+    } else if (/GEMINI_API_KEY/i.test(message)) {
+      redirectUrl.searchParams.set("reason", "gemini-env");
+    } else {
+      redirectUrl.searchParams.set("reason", "server");
+    }
+
+    return NextResponse.redirect(redirectUrl, 303);
+  }
 }
