@@ -25,7 +25,39 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
   }
 
   const { id } = await params;
-  const submission = await getSubmissionById(id);
+  let submission = null;
+  let storageError: string | null = null;
+
+  try {
+    submission = await getSubmissionById(id);
+  } catch (error) {
+    storageError =
+      error instanceof Error
+        ? error.message
+        : "Submission storage could not be loaded for this deployment.";
+  }
+
+  if (storageError) {
+    return (
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="glass-panel rounded-[2rem] border border-rose-300/70 bg-rose-50/80 p-6 sm:p-8 text-rose-950">
+          <span className="pill">Submission unavailable</span>
+          <h1 className="mt-4 text-3xl font-semibold text-rose-950">This submission could not be loaded.</h1>
+          <p className="mt-4 break-words text-sm leading-7 text-rose-900">
+            {storageError}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link className="button-secondary" href="/">
+              Back to dashboard
+            </Link>
+            <Link className="button-secondary" href="/professor-debug">
+              Open deployment diagnostics
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (!submission) {
     notFound();

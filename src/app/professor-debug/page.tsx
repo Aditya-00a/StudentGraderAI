@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
-import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
+import { checkSupabaseStorageHealth, hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,8 @@ export default async function ProfessorDebugPage() {
   if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
     redirect("/professor-login?next=/professor-debug");
   }
+
+  const supabaseHealth = await checkSupabaseStorageHealth();
 
   const checks = [
     {
@@ -74,6 +76,16 @@ export default async function ProfessorDebugPage() {
         </div>
         <div className="mt-6 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
           Supabase bucket name: {process.env.SUPABASE_STORAGE_BUCKET || "student-grader-ai"}
+        </div>
+        <div
+          className={`mt-4 rounded-[1rem] px-4 py-3 text-sm ${
+            supabaseHealth.ok
+              ? "bg-emerald-50 text-emerald-950"
+              : "bg-rose-50 text-rose-950"
+          }`}
+        >
+          Supabase storage health: {supabaseHealth.ok ? "OK" : "Failed"}
+          <div className="mt-2 break-words">{supabaseHealth.detail}</div>
         </div>
       </section>
     </main>

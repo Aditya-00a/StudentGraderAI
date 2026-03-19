@@ -20,43 +20,47 @@ export async function generateRubricSuggestion(input: {
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-  const response = await client.models.generateContent({
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    contents: [
-      `Assignment title: ${input.title}`,
-      `Course or module: ${input.courseCode}`,
-      `Maximum score: ${input.maxScore}`,
-      "",
-      "Assignment description:",
-      input.description,
-      "",
-      "Generate a grading focus and a professor-editable rubric.",
-      "The rubric should be practical, fair, and written so a professor can use it directly.",
-      `Use a total scale of ${input.maxScore}.`,
-      "Return plain language with criterion names, suggested points, and what strong work should demonstrate.",
-    ].join("\n"),
-    config: {
-      systemInstruction:
-        "You help professors create clear grading rubrics. Be concise, concrete, and classroom-friendly.",
-      responseMimeType: "application/json",
-      responseJsonSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          gradingFocus: { type: "string" },
-          rubric: { type: "string" },
-        },
-        required: ["gradingFocus", "rubric"],
-      },
-    },
-  });
-
-  if (!response.text) {
-    return buildFallbackRubric(input);
-  }
-
   try {
-    return rubricSuggestionSchema.parse(JSON.parse(response.text));
+    const response = await client.models.generateContent({
+      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      contents: [
+        `Assignment title: ${input.title}`,
+        `Course or module: ${input.courseCode}`,
+        `Maximum score: ${input.maxScore}`,
+        "",
+        "Assignment description:",
+        input.description,
+        "",
+        "Generate a grading focus and a professor-editable rubric.",
+        "The rubric should be practical, fair, and written so a professor can use it directly.",
+        `Use a total scale of ${input.maxScore}.`,
+        "Return plain language with criterion names, suggested points, and what strong work should demonstrate.",
+      ].join("\n"),
+      config: {
+        systemInstruction:
+          "You help professors create clear grading rubrics. Be concise, concrete, and classroom-friendly.",
+        responseMimeType: "application/json",
+        responseJsonSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            gradingFocus: { type: "string" },
+            rubric: { type: "string" },
+          },
+          required: ["gradingFocus", "rubric"],
+        },
+      },
+    });
+
+    if (!response.text) {
+      return buildFallbackRubric(input);
+    }
+
+    try {
+      return rubricSuggestionSchema.parse(JSON.parse(response.text));
+    } catch {
+      return buildFallbackRubric(input);
+    }
   } catch {
     return buildFallbackRubric(input);
   }

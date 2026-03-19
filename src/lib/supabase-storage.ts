@@ -72,3 +72,37 @@ export async function writeSupabaseFile(
     throw new Error(`Supabase upload failed: ${error.message}`);
   }
 }
+
+export async function checkSupabaseStorageHealth() {
+  if (!hasSupabaseStorageConfigured()) {
+    return {
+      ok: false,
+      detail: "Supabase storage environment variables are missing.",
+    };
+  }
+
+  const pathname = "healthchecks/runtime-check.txt";
+  const value = `health-check:${Date.now()}`;
+
+  try {
+    await writeSupabaseFile(pathname, value, "text/plain");
+    const roundTrip = await readSupabaseText(pathname);
+
+    if (roundTrip !== value) {
+      return {
+        ok: false,
+        detail: "Supabase write succeeded, but the read-back value did not match.",
+      };
+    }
+
+    return {
+      ok: true,
+      detail: `Bucket "${bucketName}" is writable.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: error instanceof Error ? error.message : "Supabase storage check failed.",
+    };
+  }
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listAssignments } from "@/lib/store";
+import type { Assignment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,18 @@ type StudentSubmitPageProps = {
 };
 
 export default async function StudentSubmitPage({ searchParams }: StudentSubmitPageProps) {
-  const assignments = await listAssignments();
   const { error, submitted } = await searchParams;
+  let assignments: Assignment[] = [];
+  let storageError: string | null = null;
+
+  try {
+    assignments = await listAssignments();
+  } catch (loadError) {
+    storageError =
+      loadError instanceof Error
+        ? loadError.message
+        : "Assignment storage could not be loaded for this deployment.";
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
@@ -44,7 +55,21 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
 
       {error ? (
         <section className="glass-panel rounded-[1.5rem] border border-rose-300/70 bg-rose-50/80 px-5 py-4 text-sm leading-7 text-rose-950">
-          There was a problem with the submission. Check the form and try again.
+          {error === "assignment-not-found"
+            ? "That assignment could not be found anymore. Refresh the page and choose an available assignment."
+            : error === "storage"
+              ? "The deployment could not save this submission because persistent storage is not working yet. Ask the professor to check the storage configuration."
+              : error === "processing"
+                ? "Your submission was received, but the server could not finish processing it. Try again after the professor checks the deployment settings."
+                : "There was a problem with the submission. Check the form and try again."}
+        </section>
+      ) : null}
+
+      {storageError ? (
+        <section className="glass-panel rounded-[1.5rem] border border-rose-300/70 bg-rose-50/80 px-5 py-4 text-sm leading-7 text-rose-950">
+          Assignment storage is unavailable right now, so students cannot submit work until the
+          professor fixes the deployment.
+          <div className="mt-3 break-words text-rose-900/80">{storageError}</div>
         </section>
       ) : null}
 
@@ -58,7 +83,11 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
           </p>
         </div>
 
-        {assignments.length === 0 ? (
+        {storageError ? (
+          <div className="rounded-[1.25rem] border border-dashed border-rose-300 bg-white/55 px-5 py-8 text-sm leading-7 text-rose-950">
+            The submission form is temporarily unavailable because assignments could not be loaded.
+          </div>
+        ) : assignments.length === 0 ? (
           <div className="rounded-[1.25rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm leading-7 text-slate-600">
             No assignments are open yet. Check back after the professor publishes one.
           </div>

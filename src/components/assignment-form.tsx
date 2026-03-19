@@ -40,6 +40,10 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
         }),
       });
 
+      if (response.status === 401) {
+        throw new Error("unauthorized");
+      }
+
       if (!response.ok) {
         throw new Error("generator-failed");
       }
@@ -54,8 +58,12 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
         setRubric(data.rubric);
       });
       setGeneratorMessage("Rubric generated. You can edit it before saving.");
-    } catch {
-      setGeneratorMessage("Rubric generation failed. You can still type your own rubric.");
+    } catch (error) {
+      setGeneratorMessage(
+        error instanceof Error && error.message === "unauthorized"
+          ? "Your professor session expired. Sign in again, then try generating the rubric."
+          : "Rubric generation failed. You can still save the assignment and let the server build a fallback rubric.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -101,7 +109,8 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
       </label>
       <div className="rounded-[1rem] border border-slate-200/80 bg-white/75 px-4 py-3 text-sm leading-7 text-slate-600">
         The rubric is generated from the assignment description and score scale, then you can edit
-        it before saving.
+        it before saving. If Gemini is unavailable, the server can still draft a fallback rubric
+        when you submit.
       </div>
       <label className="space-y-2 text-sm font-medium text-slate-700 sm:col-span-2">
         Assignment brief
@@ -143,7 +152,6 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
           className="field min-h-24"
           name="gradingFocus"
           placeholder="Generated automatically, but you can edit it."
-          required
           value={gradingFocus}
           onChange={(event) => setGradingFocus(event.target.value)}
         />
@@ -154,7 +162,6 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
           className="field min-h-44"
           name="rubric"
           placeholder="Generate a rubric from the assignment description, then edit it as needed."
-          required
           value={rubric}
           onChange={(event) => setRubric(event.target.value)}
         />

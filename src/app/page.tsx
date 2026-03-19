@@ -6,6 +6,7 @@ import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/au
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
+import type { Assignment, Submission } from "@/lib/types";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -29,11 +30,20 @@ export default async function Home({ searchParams }: HomePageProps) {
     redirect("/professor-login?next=/");
   }
 
-  const [assignments, submissions, params] = await Promise.all([
-    listAssignments(),
-    listSubmissions(),
-    searchParams,
-  ]);
+  let assignments: Assignment[] = [];
+  let submissions: Submission[] = [];
+  let storageError: string | null = null;
+
+  const params = await searchParams;
+
+  try {
+    [assignments, submissions] = await Promise.all([listAssignments(), listSubmissions()]);
+  } catch (loadError) {
+    storageError =
+      loadError instanceof Error
+        ? loadError.message
+        : "Assignment and submission storage could not be loaded.";
+  }
 
   const gradedSubmissions = submissions.filter((submission) =>
     typeof submission.score === "number",
@@ -93,6 +103,19 @@ export default async function Home({ searchParams }: HomePageProps) {
         <section className="glass-panel rounded-[1.5rem] border border-amber-300/70 bg-amber-50/75 px-5 py-4 text-sm leading-7 text-amber-950">
           Persistent storage is not configured. On Vercel, add either Supabase storage or Vercel
           Blob so assignments, submissions, and uploads persist reliably.
+        </section>
+      ) : null}
+
+      {storageError ? (
+        <section className="glass-panel rounded-[1.5rem] border border-rose-300/70 bg-rose-50/80 px-5 py-4 text-sm leading-7 text-rose-950">
+          The dashboard could not load assignment storage for this deployment. New assignments and
+          submissions will not behave reliably until storage is fixed.
+          <div className="mt-3 break-words text-rose-900/80">{storageError}</div>
+          <div className="mt-3">
+            <Link className="underline" href="/professor-debug">
+              Open deployment diagnostics
+            </Link>
+          </div>
         </section>
       ) : null}
 

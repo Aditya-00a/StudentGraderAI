@@ -45,30 +45,27 @@ export async function POST(request: Request) {
   });
 
   if (!parsed.success) {
-    const redirectUrl = new URL("/", request.url);
-    redirectUrl.hash = "student-submit";
-    redirectUrl.searchParams.set("error", "submission");
-    return NextResponse.redirect(redirectUrl, 303);
+    return NextResponse.redirect(buildSubmitRedirect(request, "submission"), 303);
   }
 
   const assignment = await getAssignmentById(parsed.data.assignmentId);
   if (!assignment) {
-    const redirectUrl = new URL("/", request.url);
-    redirectUrl.hash = "student-submit";
-    redirectUrl.searchParams.set("error", "assignment-not-found");
-    return NextResponse.redirect(redirectUrl, 303);
+    return NextResponse.redirect(buildSubmitRedirect(request, "assignment-not-found"), 303);
   }
 
-  const submission = await createSubmission({
-    assignmentId: assignment.id,
-    assignmentTitle: assignment.title,
-    studentName: parsed.data.studentName,
-    studentEmail: parsed.data.studentEmail,
-    githubUrl: parsed.data.githubUrl,
-    notes: parsed.data.notes,
-  });
+  let submissionId: string | null = null;
 
   try {
+    const submission = await createSubmission({
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+      studentName: parsed.data.studentName,
+      studentEmail: parsed.data.studentEmail,
+      githubUrl: parsed.data.githubUrl,
+      notes: parsed.data.notes,
+    });
+    submissionId = submission.id;
+
     const uploads = await persistUploadedFiles(submission.id, files);
     const collected = await collectSubmissionArtifacts({
       githubUrl: parsed.data.githubUrl,
@@ -92,10 +89,26 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "The AI grader could not process this submission.";
-    await updateSubmissionFailure(submission.id, message);
+
+    if (submissionId) {
+      await updateSubmissionFailure(submissionId, message);
+      return NextResponse.redirect(buildSubmitRedirect(request, "processing"), 303);
+    }
+
+    if (/Supabase upload failed|Supabase storage is not configured/i.test(message)) {
+      return NextResponse.redirect(buildSubmitRedirect(request, "storage"), 303);
+    }
+
+    return NextResponse.redirect(buildSubmitRedirect(request, "submission"), 303);
   }
 
   const redirectUrl = new URL("/submit", request.url);
   redirectUrl.searchParams.set("submitted", "1");
   return NextResponse.redirect(redirectUrl, 303);
+}
+
+function buildSubmitRedirect(request: Request, error: string) {
+  const redirectUrl = new URL("/submit", request.url);
+  redirectUrl.searchParams.set("error", error);
+  return redirectUrl;
 }
