@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StudentSubmissionForm } from "@/components/student-submission-form";
 import { listAssignments } from "@/lib/store";
 import type { Assignment } from "@/lib/types";
 
@@ -92,65 +93,7 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
             No assignments are open yet. Check back after the professor publishes one.
           </div>
         ) : (
-          <form action="/api/submissions" method="post" encType="multipart/form-data" className="grid gap-4">
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Assignment
-              <select className="field" name="assignmentId" required defaultValue="">
-                <option value="" disabled>
-                  Choose your assignment
-                </option>
-                {assignments.map((assignment) => (
-                  <option key={assignment.id} value={assignment.id}>
-                    {assignment.title} ({assignment.courseCode}) - out of {assignment.maxScore}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2 text-sm font-medium text-slate-700">
-                Student name
-                <input className="field" name="studentName" placeholder="Your full name" required />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-slate-700">
-                Student email
-                <input
-                  className="field"
-                  name="studentEmail"
-                  type="email"
-                  placeholder="netid@nyu.edu"
-                  required
-                />
-              </label>
-            </div>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Public GitHub repository
-              <input
-                className="field"
-                name="githubUrl"
-                type="url"
-                placeholder="https://github.com/username/repository"
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Upload project files or a zip archive
-              <input className="field" name="projectFiles" type="file" multiple />
-            </label>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Submission notes
-              <textarea
-                className="field min-h-28"
-                name="notes"
-                placeholder="Optional setup instructions, special features, or missing items."
-              />
-            </label>
-            <div className="rounded-[1.25rem] bg-slate-900 px-4 py-3 text-sm text-slate-100">
-              Submissions are received here, but grading details and dashboard analytics remain
-              private to the professor.
-            </div>
-            <button className="button-primary" type="submit">
-              Submit project
-            </button>
-          </form>
+          <StudentSubmissionForm assignments={assignments} />
         )}
       </section>
 
