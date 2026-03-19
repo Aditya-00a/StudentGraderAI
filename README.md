@@ -16,7 +16,8 @@ This project is an MVP for exactly that workflow.
 ## Core features
 
 - Professor dashboard for creating assignments
-- Custom rubric and grading-focus fields per assignment
+- AI-generated rubric drafts that professors can edit before saving
+- Private professor dashboard plus separate student submission portal
 - Student submission form for:
   - public GitHub repository links
   - uploaded source files
@@ -44,12 +45,14 @@ This project is an MVP for exactly that workflow.
 
 ## How grading works
 
-1. A professor creates an assignment with a title, score scale, grading focus, and rubric.
-2. A student submits a GitHub repo, files, or both.
-3. The app reads text-based source files from the submission.
-4. The app sends the assignment rubric plus sampled project evidence to Gemini.
-5. Gemini returns structured JSON with a score and feedback.
-6. The app stores the result and renders a grading report page.
+1. A professor creates an assignment with a title, score scale, and assignment description.
+2. The app can draft a rubric and grading focus automatically from the assignment description.
+3. The professor edits the generated rubric before saving if needed.
+4. A student submits a GitHub repo, files, or both.
+5. The app reads text-based source files from the submission.
+6. The app sends the assignment rubric plus sampled project evidence to Gemini.
+7. Gemini returns structured JSON with a score and feedback.
+8. The app stores the result and renders a grading report page for the professor dashboard.
 
 ## Local setup
 
@@ -66,6 +69,7 @@ This project is an MVP for exactly that workflow.
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=optional_for_higher_github_rate_limits
    PERSISTENCE_ROOT=
+   PROFESSOR_ACCESS_KEY=choose_a_private_password
    ```
 
 3. Start the app:
@@ -90,6 +94,7 @@ If port `3000` is already busy, Next.js will usually move to the next free port 
 | `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` |
 | `GITHUB_TOKEN` | No | Helps avoid GitHub API rate limits |
 | `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
+| `PROFESSOR_ACCESS_KEY` | Recommended | Protects the professor dashboard and grading results |
 
 ## Deployment
 
@@ -106,6 +111,7 @@ This MVP writes to the local filesystem, so it should be deployed on a host with
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=
    PERSISTENCE_ROOT=/data
+   PROFESSOR_ACCESS_KEY=choose_a_private_password
    ```
 
 4. Attach a persistent volume mounted at `/data`.
@@ -143,7 +149,7 @@ Then the app stores:
 
 ## Current limitations
 
-- No authentication yet
+- Professor access is password-gated, but there is no full user account system yet
 - GitHub submissions currently expect public repos
 - No database yet
 - No cloud object storage yet

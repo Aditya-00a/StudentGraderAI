@@ -32,7 +32,9 @@ export async function gradeSubmission({
   githubRepositoryLabel: string | null;
 }) {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is missing. Add it to .env.local to enable AI grading.");
+    throw new Error(
+      "GEMINI_API_KEY is missing from the server environment. Add it to the deployment environment variables to enable AI grading.",
+    );
   }
 
   if (artifacts.length === 0) {
@@ -57,7 +59,7 @@ export async function gradeSubmission({
     contents: [
       `Assignment title: ${assignment.title}`,
       `Course: ${assignment.courseCode}`,
-      `Maximum score: ${assignment.maxScore} ${assignment.ratingLabel}`,
+      `Maximum score: ${assignment.maxScore}`,
       `Grading focus: ${assignment.gradingFocus}`,
       `Rubric: ${assignment.rubric}`,
       `Student: ${submission.studentName} (${submission.studentEmail})`,

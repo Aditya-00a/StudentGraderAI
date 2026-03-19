@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAssignment } from "@/lib/store";
+import { generateRubricSuggestion } from "@/lib/rubric";
 
 export const runtime = "nodejs";
 
@@ -9,9 +10,8 @@ const assignmentSchema = z.object({
   courseCode: z.string().trim().min(2).max(40),
   description: z.string().trim().min(20).max(4_000),
   maxScore: z.coerce.number().int().min(1).max(1_000),
-  ratingLabel: z.string().trim().min(1).max(20),
-  gradingFocus: z.string().trim().min(10).max(2_000),
-  rubric: z.string().trim().min(20).max(8_000),
+  gradingFocus: z.string().trim().max(2_000).optional().default(""),
+  rubric: z.string().trim().max(8_000).optional().default(""),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +22,6 @@ export async function POST(request: Request) {
     courseCode: formData.get("courseCode"),
     description: formData.get("description"),
     maxScore: formData.get("maxScore"),
-    ratingLabel: formData.get("ratingLabel"),
     gradingFocus: formData.get("gradingFocus"),
     rubric: formData.get("rubric"),
   });
@@ -35,7 +34,24 @@ export async function POST(request: Request) {
     return NextResponse.redirect(redirectUrl, 303);
   }
 
-  await createAssignment(parsed.data);
+  let { gradingFocus, rubric } = parsed.data;
+
+  if (!gradingFocus || !rubric) {
+    const suggestion = await generateRubricSuggestion({
+      title: parsed.data.title,
+      courseCode: parsed.data.courseCode,
+      description: parsed.data.description,
+      maxScore: parsed.data.maxScore,
+    });
+    gradingFocus = gradingFocus || suggestion.gradingFocus;
+    rubric = rubric || suggestion.rubric;
+  }
+
+  await createAssignment({
+    ...parsed.data,
+    gradingFocus,
+    rubric,
+  });
   redirectUrl.searchParams.set("created", "assignment");
   return NextResponse.redirect(redirectUrl, 303);
 }

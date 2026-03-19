@@ -6,7 +6,6 @@ export type Assignment = {
   courseCode: string;
   description: string;
   maxScore: number;
-  ratingLabel: string;
   gradingFocus: string;
   rubric: string;
   createdAt: string;

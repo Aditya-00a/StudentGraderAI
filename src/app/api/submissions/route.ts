@@ -95,5 +95,7 @@ export async function POST(request: Request) {
     await updateSubmissionFailure(submission.id, message);
   }
 
-  return NextResponse.redirect(new URL(`/submissions/${submission.id}`, request.url), 303);
+  const redirectUrl = new URL("/submit", request.url);
+  redirectUrl.searchParams.set("submitted", "1");
+  return NextResponse.redirect(redirectUrl, 303);
 }
