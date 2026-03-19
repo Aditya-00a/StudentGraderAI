@@ -1,0 +1,162 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import crypto from "node:crypto";
+import type {
+  ArtifactPreview,
+  Assignment,
+  Database,
+  GradingResult,
+  StoredUpload,
+  Submission,
+} from "@/lib/types";
+import { dataDirectory } from "@/lib/paths";
+
+const databasePath = `${dataDirectory}/student-grader-ai.json`;
+
+const emptyDatabase: Database = {
+  assignments: [],
+  submissions: [],
+};
+
+async function ensureDatabase() {
+  await mkdir(dataDirectory, { recursive: true });
+
+  try {
+    await readFile(databasePath, "utf8");
+  } catch {
+    await writeFile(databasePath, JSON.stringify(emptyDatabase, null, 2), "utf8");
+  }
+}
+
+async function readDatabase() {
+  await ensureDatabase();
+  const raw = await readFile(databasePath, "utf8");
+  return JSON.parse(raw) as Database;
+}
+
+async function writeDatabase(database: Database) {
+  await ensureDatabase();
+  await writeFile(databasePath, JSON.stringify(database, null, 2), "utf8");
+}
+
+export async function listAssignments() {
+  const database = await readDatabase();
+  return [...database.assignments].sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt),
+  );
+}
+
+export async function listSubmissions() {
+  const database = await readDatabase();
+  return [...database.submissions].sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt),
+  );
+}
+
+export async function getAssignmentById(id: string) {
+  const database = await readDatabase();
+  return database.assignments.find((assignment) => assignment.id === id) ?? null;
+}
+
+export async function getSubmissionById(id: string) {
+  const database = await readDatabase();
+  return database.submissions.find((submission) => submission.id === id) ?? null;
+}
+
+export async function createAssignment(input: Omit<Assignment, "id" | "createdAt">) {
+  const database = await readDatabase();
+  const assignment: Assignment = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    ...input,
+  };
+
+  database.assignments.push(assignment);
+  await writeDatabase(database);
+  return assignment;
+}
+
+export async function createSubmission(
+  input: Pick<
+    Submission,
+    | "assignmentId"
+    | "assignmentTitle"
+    | "studentName"
+    | "studentEmail"
+    | "githubUrl"
+    | "notes"
+  >,
+) {
+  const database = await readDatabase();
+  const submission: Submission = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    status: "processing",
+    files: [],
+    analyzedFiles: [],
+    score: null,
+    gradingSummary: null,
+    strengths: [],
+    improvements: [],
+    rubricBreakdown: [],
+    professorFeedback: null,
+    errorMessage: null,
+    ...input,
+  };
+
+  database.submissions.push(submission);
+  await writeDatabase(database);
+  return submission;
+}
+
+export async function updateSubmissionArtifacts(
+  submissionId: string,
+  files: StoredUpload[],
+  analyzedFiles: ArtifactPreview[],
+) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  submission.files = files;
+  submission.analyzedFiles = analyzedFiles;
+  await writeDatabase(database);
+  return submission;
+}
+
+export async function updateSubmissionResult(submissionId: string, result: GradingResult) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  submission.status = "graded";
+  submission.score = result.score;
+  submission.gradingSummary = result.gradingSummary;
+  submission.strengths = result.strengths;
+  submission.improvements = result.improvements;
+  submission.rubricBreakdown = result.rubricBreakdown;
+  submission.professorFeedback = result.professorFeedback;
+  submission.errorMessage = null;
+
+  await writeDatabase(database);
+  return submission;
+}
+
+export async function updateSubmissionFailure(submissionId: string, errorMessage: string) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  submission.status = "failed";
+  submission.errorMessage = errorMessage;
+  await writeDatabase(database);
+  return submission;
+}

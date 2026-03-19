@@ -1,36 +1,194 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StudentGraderAI
 
-## Getting Started
+StudentGraderAI is an AI-powered grading portal for professors. It lets instructors create assignments with custom rubrics, lets students submit GitHub repositories or uploaded files, and generates a score plus written feedback using Gemini.
 
-First, run the development server:
+## Why this exists
+
+Many professors want one place where they can:
+
+- collect project submissions online
+- review GitHub repositories and uploaded files together
+- score work on a custom scale like `10`, `20`, or `100`
+- give students feedback on what was done well and what should improve
+
+This project is an MVP for exactly that workflow.
+
+## Core features
+
+- Professor dashboard for creating assignments
+- Custom rubric and grading-focus fields per assignment
+- Student submission form for:
+  - public GitHub repository links
+  - uploaded source files
+  - zip archives
+  - optional student notes
+- AI grading with:
+  - final score
+  - summary
+  - strengths
+  - improvement areas
+  - rubric breakdown
+  - professor-facing narrative feedback
+- Submission result page showing the analyzed evidence
+
+## Tech stack
+
+- Next.js 16
+- React 19
+- Tailwind CSS 4
+- Gemini API via `@google/genai`
+- Zod for validation
+- JSZip for archive analysis
+- Local JSON persistence for assignments/submissions
+- Local disk storage for uploaded files
+
+## How grading works
+
+1. A professor creates an assignment with a title, score scale, grading focus, and rubric.
+2. A student submits a GitHub repo, files, or both.
+3. The app reads text-based source files from the submission.
+4. The app sends the assignment rubric plus sampled project evidence to Gemini.
+5. Gemini returns structured JSON with a score and feedback.
+6. The app stores the result and renders a grading report page.
+
+## Local setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create `.env.local` and add your keys:
+
+   ```bash
+   GEMINI_API_KEY=your_key_here
+   GEMINI_MODEL=gemini-2.5-flash
+   GITHUB_TOKEN=optional_for_higher_github_rate_limits
+   PERSISTENCE_ROOT=
+   ```
+
+3. Start the app:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open:
+
+   ```text
+   http://localhost:3000
+   ```
+
+If port `3000` is already busy, Next.js will usually move to the next free port such as `3001`.
+
+## Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `GEMINI_API_KEY` | Yes | Enables AI grading through Gemini |
+| `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` |
+| `GITHUB_TOKEN` | No | Helps avoid GitHub API rate limits |
+| `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
+
+## Deployment
+
+This MVP writes to the local filesystem, so it should be deployed on a host with persistent disk support.
+
+### Recommended: Railway
+
+1. Push this repo to GitHub.
+2. Import the repo into Railway.
+3. Add environment variables:
+
+   ```bash
+   GEMINI_API_KEY=your_key_here
+   GEMINI_MODEL=gemini-2.5-flash
+   GITHUB_TOKEN=
+   PERSISTENCE_ROOT=/data
+   ```
+
+4. Attach a persistent volume mounted at `/data`.
+5. Deploy and add a public domain.
+
+### Other good options
+
+- Render with a persistent disk
+- Fly.io with volumes
+- A VPS with PM2, Docker, or systemd
+
+### Not ideal right now
+
+- Vercel, because this version stores uploads and JSON data on disk
+
+## Data storage
+
+By default the app stores:
+
+- assignments/submissions in `data/student-grader-ai.json`
+- uploaded student files in `storage/submissions`
+
+If `PERSISTENCE_ROOT` is set, those paths move under that root instead.
+
+Example:
+
+```bash
+PERSISTENCE_ROOT=/data
+```
+
+Then the app stores:
+
+- `/data/data/student-grader-ai.json`
+- `/data/storage/submissions`
+
+## Current limitations
+
+- No authentication yet
+- GitHub submissions currently expect public repos
+- No database yet
+- No cloud object storage yet
+- No plagiarism detection
+- No LMS integration yet
+
+## Good next steps
+
+- Add professor and student authentication
+- Move storage to Postgres + S3/R2/Supabase Storage
+- Add assignment due dates and statuses
+- Add manual override/editing of AI grades
+- Add downloadable PDF or CSV grading reports
+- Add class roster and submission tracking
+
+## Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+src/
+  app/
+    api/
+    submissions/
+  lib/
+data/        # generated locally
+storage/     # generated locally
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Model choice
 
-## Learn More
+This project currently uses `gemini-2.5-flash` because it is a strong low-cost/free-tier option for structured grading output and quick responses.
 
-To learn more about Next.js, take a look at the following resources:
+Official docs:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Gemini pricing: https://ai.google.dev/gemini-api/docs/pricing
+- Gemini structured output: https://ai.google.dev/gemini-api/docs/structured-output
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Status
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is a working MVP. It is suitable for demos, professor review, and early testing. For real classroom rollout, the next step should be adding authentication plus production-grade storage.
