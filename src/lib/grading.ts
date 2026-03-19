@@ -2,22 +2,30 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import type { Assignment, CollectedArtifact, GradingResult, Submission } from "@/lib/types";
 
+const limits = {
+  gradingSummary: 1_200,
+  listItem: 280,
+  criterion: 80,
+  rubricFeedback: 300,
+  professorFeedback: 1_500,
+} as const;
+
 const gradingResponseSchema = z.object({
   score: z.number(),
-  gradingSummary: z.string().min(20).max(1_200),
-  strengths: z.array(z.string().min(6).max(280)).min(2).max(5),
-  improvements: z.array(z.string().min(6).max(280)).min(2).max(5),
+  gradingSummary: z.string().min(20).max(limits.gradingSummary),
+  strengths: z.array(z.string().min(6).max(limits.listItem)).min(2).max(5),
+  improvements: z.array(z.string().min(6).max(limits.listItem)).min(2).max(5),
   rubricBreakdown: z
     .array(
       z.object({
-        criterion: z.string().min(2).max(80),
+        criterion: z.string().min(2).max(limits.criterion),
         score: z.number(),
-        feedback: z.string().min(8).max(300),
+        feedback: z.string().min(8).max(limits.rubricFeedback),
       }),
     )
     .min(2)
     .max(6),
-  professorFeedback: z.string().min(20).max(1_500),
+  professorFeedback: z.string().min(20).max(limits.professorFeedback),
 });
 
 export async function gradeSubmission({
@@ -66,6 +74,7 @@ export async function gradeSubmission({
       `Submission notes: ${submission.notes ?? "None provided"}`,
       `GitHub repository: ${githubRepositoryLabel ?? submission.githubUrl ?? "Not provided"}`,
       "Return a rigorous grade with concrete evidence. The rubric breakdown scores must stay within the assignment scale and should add up roughly to the final score without exceeding the maximum.",
+      "Keep every strengths/improvements bullet under 280 characters and every rubric feedback note under 300 characters.",
       "",
       "Assignment brief:",
       assignment.description,
@@ -136,7 +145,7 @@ export async function gradeSubmission({
     throw new Error("The Gemini grader returned an empty response.");
   }
 
-  const parsed = gradingResponseSchema.parse(JSON.parse(response.text));
+  const parsed = gradingResponseSchema.parse(sanitizeGradingPayload(JSON.parse(response.text)));
 
   return {
     score: clamp(parsed.score, 0, assignment.maxScore),
@@ -153,4 +162,59 @@ export async function gradeSubmission({
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function sanitizeGradingPayload(payload: unknown) {
+  const data = (payload ?? {}) as Record<string, unknown>;
+
+  return {
+    score: typeof data.score === "number" ? data.score : Number(data.score ?? 0),
+    gradingSummary: normalizeText(data.gradingSummary, limits.gradingSummary),
+    strengths: normalizeStringList(data.strengths, limits.listItem),
+    improvements: normalizeStringList(data.improvements, limits.listItem),
+    rubricBreakdown: normalizeRubricBreakdown(data.rubricBreakdown),
+    professorFeedback: normalizeText(data.professorFeedback, limits.professorFeedback),
+  };
+}
+
+function normalizeStringList(value: unknown, maximum: number) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => normalizeText(item, maximum))
+    .filter((item) => item.length >= 6)
+    .slice(0, 5);
+}
+
+function normalizeRubricBreakdown(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const entry = item as Record<string, unknown>;
+
+      return {
+        criterion: normalizeText(entry?.criterion, limits.criterion),
+        score:
+          typeof entry?.score === "number" ? entry.score : Number(entry?.score ?? 0),
+        feedback: normalizeText(entry?.feedback, limits.rubricFeedback),
+      };
+    })
+    .filter((item) => item.criterion.length >= 2 && item.feedback.length >= 8)
+    .slice(0, 6);
+}
+
+function normalizeText(value: unknown, maximum: number) {
+  const text = typeof value === "string" ? value : "";
+  const compact = text.replace(/\s+/g, " ").trim();
+
+  if (compact.length <= maximum) {
+    return compact;
+  }
+
+  return compact.slice(0, maximum - 1).trimEnd() + "…";
 }
