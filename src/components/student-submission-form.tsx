@@ -20,7 +20,7 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
     >
       <label className="space-y-2 text-sm font-medium text-slate-700">
         Assignment
-        <select className="field" name="assignmentId" required defaultValue="" disabled={isSubmitting}>
+        <select className="field" name="assignmentId" required defaultValue="">
           <option value="" disabled>
             Choose your assignment
           </option>
@@ -39,7 +39,6 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
             name="studentName"
             placeholder="Your full name"
             required
-            disabled={isSubmitting}
           />
         </label>
         <label className="space-y-2 text-sm font-medium text-slate-700">
@@ -50,7 +49,6 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
             type="email"
             placeholder="netid@nyu.edu"
             required
-            disabled={isSubmitting}
           />
         </label>
       </div>
@@ -61,12 +59,11 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
           name="githubUrl"
           type="url"
           placeholder="https://github.com/username/repository"
-          disabled={isSubmitting}
         />
       </label>
       <label className="space-y-2 text-sm font-medium text-slate-700">
         Upload project files or a zip archive
-        <input className="field" name="projectFiles" type="file" multiple disabled={isSubmitting} />
+        <input className="field" name="projectFiles" type="file" multiple />
       </label>
       <label className="space-y-2 text-sm font-medium text-slate-700">
         Submission notes
@@ -74,7 +71,6 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
           className="field min-h-28"
           name="notes"
           placeholder="Optional setup instructions, special features, or missing items."
-          disabled={isSubmitting}
         />
       </label>
       <div className="rounded-[1.25rem] bg-slate-900 px-4 py-3 text-sm text-slate-100">
