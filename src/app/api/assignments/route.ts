@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { createAssignment } from "@/lib/store";
 import { generateRubricSuggestion } from "@/lib/rubric";
 
@@ -15,6 +16,13 @@ const assignmentSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (
+    isProfessorAccessConfigured() &&
+    !hasProfessorSessionCookie(request.headers.get("cookie"))
+  ) {
+    return NextResponse.redirect(new URL("/professor-login?next=/", request.url), 303);
+  }
+
   const formData = await request.formData();
 
   const parsed = assignmentSchema.safeParse({

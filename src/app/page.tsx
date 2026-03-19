@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { AssignmentForm } from "@/components/assignment-form";
+import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { listAssignments, listSubmissions } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -13,6 +16,16 @@ type HomePageProps = {
 };
 
 export default async function Home({ searchParams }: HomePageProps) {
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((item) => `${item.name}=${item.value}`)
+    .join("; ");
+
+  if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
+    redirect("/professor-login?next=/");
+  }
+
   const [assignments, submissions, params] = await Promise.all([
     listAssignments(),
     listSubmissions(),

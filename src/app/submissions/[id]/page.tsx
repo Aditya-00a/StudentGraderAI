@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
+import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { getSubmissionById } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -12,6 +14,16 @@ type SubmissionPageProps = {
 };
 
 export default async function SubmissionPage({ params }: SubmissionPageProps) {
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore
+    .getAll()
+    .map((item) => `${item.name}=${item.value}`)
+    .join("; ");
+
+  if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
+    redirect("/professor-login?next=/submissions");
+  }
+
   const { id } = await params;
   const submission = await getSubmissionById(id);
 

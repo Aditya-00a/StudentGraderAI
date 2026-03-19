@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { generateRubricSuggestion } from "@/lib/rubric";
 
 export const runtime = "nodejs";
@@ -12,6 +13,13 @@ const rubricRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (
+    isProfessorAccessConfigured() &&
+    !hasProfessorSessionCookie(request.headers.get("cookie"))
+  ) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = rubricRequestSchema.safeParse(json);
 
