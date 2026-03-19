@@ -1,9 +1,14 @@
 export const professorSessionCookie = "student-grader-professor";
 
+function getNormalizedProfessorAccessKey() {
+  return (process.env.PROFESSOR_ACCESS_KEY || "").trim();
+}
+
 export function isProfessorAccessConfigured() {
-  return Boolean(process.env.PROFESSOR_ACCESS_KEY);
+  return Boolean(getNormalizedProfessorAccessKey());
 }
 
 export function isProfessorPasswordValid(password: string) {
-  return Boolean(process.env.PROFESSOR_ACCESS_KEY) && password === process.env.PROFESSOR_ACCESS_KEY;
+  const configuredPassword = getNormalizedProfessorAccessKey();
+  return Boolean(configuredPassword) && password.trim() === configuredPassword;
 }

@@ -1,3 +1,5 @@
+import { isProfessorAccessConfigured } from "@/lib/auth";
+
 export const dynamic = "force-dynamic";
 
 type ProfessorLoginPageProps = {
@@ -9,6 +11,7 @@ type ProfessorLoginPageProps = {
 
 export default async function ProfessorLoginPage({ searchParams }: ProfessorLoginPageProps) {
   const { error, next } = await searchParams;
+  const isConfigured = isProfessorAccessConfigured();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
@@ -35,6 +38,12 @@ export default async function ProfessorLoginPage({ searchParams }: ProfessorLogi
           <p className="mt-2 text-sm leading-7 text-slate-600">
             Enter the professor access key configured for this deployment.
           </p>
+          {!isConfigured ? (
+            <div className="mt-5 rounded-[1rem] border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <code>PROFESSOR_ACCESS_KEY</code> is not configured on the server yet. Add it in
+              Vercel environment variables and redeploy.
+            </div>
+          ) : null}
           {error ? (
             <div className="mt-5 rounded-[1rem] border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-950">
               The password was not accepted. Try again.
