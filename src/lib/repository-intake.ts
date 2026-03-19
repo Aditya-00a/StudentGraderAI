@@ -2,6 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import crypto from "node:crypto";
 import path from "node:path";
 import JSZip from "jszip";
+import {
+  hasBlobStorageConfigured,
+  readPrivateBlobBuffer,
+  writePrivateBlob,
+} from "@/lib/blob-storage";
 import { storageRoot } from "@/lib/paths";
 import type { ArtifactPreview, CollectedArtifact, StoredUpload } from "@/lib/types";
 import { slugifySegment } from "@/lib/utils";
@@ -72,6 +77,28 @@ export async function persistUploadedFiles(submissionId: string, files: File[]) 
     return [] satisfies StoredUpload[];
   }
 
+  if (hasBlobStorageConfigured()) {
+    const uploads: StoredUpload[] = [];
+
+    for (const file of files) {
+      const extension = path.extname(file.name);
+      const baseName = path.basename(file.name, extension);
+      const safeFileName = `${slugifySegment(baseName) || "file"}${extension.toLowerCase()}`;
+      const relativePath = `submissions/${submissionId}/${crypto.randomUUID()}-${safeFileName}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      await writePrivateBlob(relativePath, buffer);
+
+      uploads.push({
+        originalName: file.name,
+        savedPath: relativePath,
+        size: file.size,
+      });
+    }
+
+    return uploads;
+  }
+
   const targetDirectory = path.join(storageRoot, submissionId);
   await mkdir(targetDirectory, { recursive: true });
 
@@ -128,8 +155,14 @@ async function collectArtifactsFromUploads(uploads: StoredUpload[]) {
   const artifacts: CollectedArtifact[] = [];
 
   for (const upload of uploads) {
-    const fullPath = path.join(storageRoot, upload.savedPath);
-    const buffer = await readFile(fullPath);
+    const buffer = hasBlobStorageConfigured()
+      ? await readPrivateBlobBuffer(upload.savedPath)
+      : await readFile(path.join(storageRoot, upload.savedPath));
+
+    if (!buffer) {
+      continue;
+    }
+
     const extension = path.extname(upload.originalName).toLowerCase();
 
     if (extension === ".zip") {

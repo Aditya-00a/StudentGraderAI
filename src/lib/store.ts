@@ -1,5 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import crypto from "node:crypto";
+import {
+  hasBlobStorageConfigured,
+  readPrivateBlobText,
+  writePrivateBlob,
+} from "@/lib/blob-storage";
 import type {
   ArtifactPreview,
   Assignment,
@@ -11,6 +16,7 @@ import type {
 import { dataDirectory } from "@/lib/paths";
 
 const databasePath = `${dataDirectory}/student-grader-ai.json`;
+const databaseBlobPath = "app-data/student-grader-ai.json";
 
 const emptyDatabase: Database = {
   assignments: [],
@@ -18,6 +24,14 @@ const emptyDatabase: Database = {
 };
 
 async function ensureDatabase() {
+  if (hasBlobStorageConfigured()) {
+    const existing = await readPrivateBlobText(databaseBlobPath);
+    if (!existing) {
+      await writePrivateBlob(databaseBlobPath, JSON.stringify(emptyDatabase, null, 2));
+    }
+    return;
+  }
+
   await mkdir(dataDirectory, { recursive: true });
 
   try {
@@ -29,12 +43,25 @@ async function ensureDatabase() {
 
 async function readDatabase() {
   await ensureDatabase();
-  const raw = await readFile(databasePath, "utf8");
+  const raw = hasBlobStorageConfigured()
+    ? await readPrivateBlobText(databaseBlobPath)
+    : await readFile(databasePath, "utf8");
+
+  if (!raw) {
+    return emptyDatabase;
+  }
+
   return JSON.parse(raw) as Database;
 }
 
 async function writeDatabase(database: Database) {
   await ensureDatabase();
+
+  if (hasBlobStorageConfigured()) {
+    await writePrivateBlob(databaseBlobPath, JSON.stringify(database, null, 2));
+    return;
+  }
+
   await writeFile(databasePath, JSON.stringify(database, null, 2), "utf8");
 }
 

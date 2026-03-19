@@ -95,10 +95,13 @@ If port `3000` is already busy, Next.js will usually move to the next free port 
 | `GITHUB_TOKEN` | No | Helps avoid GitHub API rate limits |
 | `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
 | `PROFESSOR_ACCESS_KEY` | Recommended | Protects the professor dashboard and grading results |
+| `BLOB_READ_WRITE_TOKEN` | Required on Vercel | Enables persistent Blob storage for assignments, submissions, and uploads |
 
 ## Deployment
 
 This MVP writes to the local filesystem, so it should be deployed on a host with persistent disk support.
+
+If you deploy on Vercel, connect Vercel Blob and provide `BLOB_READ_WRITE_TOKEN`, otherwise assignments and uploads will not persist across requests.
 
 ### Recommended: Railway
 

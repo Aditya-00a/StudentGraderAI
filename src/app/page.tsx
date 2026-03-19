@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AssignmentForm } from "@/components/assignment-form";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -83,6 +84,13 @@ export default async function Home({ searchParams }: HomePageProps) {
           Add <code>GEMINI_API_KEY</code> to this deployment&apos;s environment variables to enable
           grading. Students can still submit work, but analysis will stay in a failed state until
           the key is available on the server.
+        </section>
+      ) : null}
+
+      {process.env.VERCEL && !hasBlobStorageConfigured() ? (
+        <section className="glass-panel rounded-[1.5rem] border border-amber-300/70 bg-amber-50/75 px-5 py-4 text-sm leading-7 text-amber-950">
+          Vercel Blob is not configured. Assignments, submissions, and uploads will not persist
+          reliably on Vercel until <code>BLOB_READ_WRITE_TOKEN</code> is available.
         </section>
       ) : null}
 
