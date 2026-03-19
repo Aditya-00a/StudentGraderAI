@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AssignmentForm } from "@/components/assignment-form";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
+import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -87,10 +88,10 @@ export default async function Home({ searchParams }: HomePageProps) {
         </section>
       ) : null}
 
-      {process.env.VERCEL && !hasBlobStorageConfigured() ? (
+      {process.env.VERCEL && !hasSupabaseStorageConfigured() && !hasBlobStorageConfigured() ? (
         <section className="glass-panel rounded-[1.5rem] border border-amber-300/70 bg-amber-50/75 px-5 py-4 text-sm leading-7 text-amber-950">
-          Vercel Blob is not configured. Assignments, submissions, and uploads will not persist
-          reliably on Vercel until <code>BLOB_READ_WRITE_TOKEN</code> is available.
+          Persistent storage is not configured. On Vercel, add either Supabase storage or Vercel
+          Blob so assignments, submissions, and uploads persist reliably.
         </section>
       ) : null}
 

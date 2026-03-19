@@ -96,12 +96,15 @@ If port `3000` is already busy, Next.js will usually move to the next free port 
 | `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
 | `PROFESSOR_ACCESS_KEY` | Recommended | Protects the professor dashboard and grading results |
 | `BLOB_READ_WRITE_TOKEN` | Required on Vercel | Enables persistent Blob storage for assignments, submissions, and uploads |
+| `SUPABASE_URL` | Optional | Enables Supabase-backed persistent storage |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional | Server-side key for reading and writing Supabase Storage |
+| `SUPABASE_STORAGE_BUCKET` | Optional | Defaults to `student-grader-ai` |
 
 ## Deployment
 
 This MVP writes to the local filesystem, so it should be deployed on a host with persistent disk support.
 
-If you deploy on Vercel, connect Vercel Blob and provide `BLOB_READ_WRITE_TOKEN`, otherwise assignments and uploads will not persist across requests.
+If you deploy on Vercel, connect either Supabase Storage or Vercel Blob. Without one of them, assignments and uploads will not persist across requests.
 
 ### Recommended: Railway
 
@@ -125,6 +128,7 @@ If you deploy on Vercel, connect Vercel Blob and provide `BLOB_READ_WRITE_TOKEN`
 - Render with a persistent disk
 - Fly.io with volumes
 - A VPS with PM2, Docker, or systemd
+- Supabase Storage for persistent files and app records
 
 ### Not ideal right now
 
@@ -154,8 +158,8 @@ Then the app stores:
 
 - Professor access is password-gated, but there is no full user account system yet
 - GitHub submissions currently expect public repos
-- No database yet
-- No cloud object storage yet
+- No relational database yet for assignments/submissions metadata
+- Object storage is supported through Supabase Storage or Vercel Blob
 - No plagiarism detection
 - No LMS integration yet
 

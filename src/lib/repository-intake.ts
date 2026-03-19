@@ -7,6 +7,11 @@ import {
   readPrivateBlobBuffer,
   writePrivateBlob,
 } from "@/lib/blob-storage";
+import {
+  hasSupabaseStorageConfigured,
+  readSupabaseBuffer,
+  writeSupabaseFile,
+} from "@/lib/supabase-storage";
 import { storageRoot } from "@/lib/paths";
 import type { ArtifactPreview, CollectedArtifact, StoredUpload } from "@/lib/types";
 import { slugifySegment } from "@/lib/utils";
@@ -75,6 +80,28 @@ const textBasenames = new Set([
 export async function persistUploadedFiles(submissionId: string, files: File[]) {
   if (files.length === 0) {
     return [] satisfies StoredUpload[];
+  }
+
+  if (hasSupabaseStorageConfigured()) {
+    const uploads: StoredUpload[] = [];
+
+    for (const file of files) {
+      const extension = path.extname(file.name);
+      const baseName = path.basename(file.name, extension);
+      const safeFileName = `${slugifySegment(baseName) || "file"}${extension.toLowerCase()}`;
+      const relativePath = `submissions/${submissionId}/${crypto.randomUUID()}-${safeFileName}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      await writeSupabaseFile(relativePath, buffer, file.type || "application/octet-stream");
+
+      uploads.push({
+        originalName: file.name,
+        savedPath: relativePath,
+        size: file.size,
+      });
+    }
+
+    return uploads;
   }
 
   if (hasBlobStorageConfigured()) {
@@ -155,9 +182,11 @@ async function collectArtifactsFromUploads(uploads: StoredUpload[]) {
   const artifacts: CollectedArtifact[] = [];
 
   for (const upload of uploads) {
-    const buffer = hasBlobStorageConfigured()
-      ? await readPrivateBlobBuffer(upload.savedPath)
-      : await readFile(path.join(storageRoot, upload.savedPath));
+    const buffer = hasSupabaseStorageConfigured()
+      ? await readSupabaseBuffer(upload.savedPath)
+      : hasBlobStorageConfigured()
+        ? await readPrivateBlobBuffer(upload.savedPath)
+        : await readFile(path.join(storageRoot, upload.savedPath));
 
     if (!buffer) {
       continue;

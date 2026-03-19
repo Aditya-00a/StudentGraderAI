@@ -5,6 +5,11 @@ import {
   readPrivateBlobText,
   writePrivateBlob,
 } from "@/lib/blob-storage";
+import {
+  hasSupabaseStorageConfigured,
+  readSupabaseText,
+  writeSupabaseFile,
+} from "@/lib/supabase-storage";
 import type {
   ArtifactPreview,
   Assignment,
@@ -24,6 +29,18 @@ const emptyDatabase: Database = {
 };
 
 async function ensureDatabase() {
+  if (hasSupabaseStorageConfigured()) {
+    const existing = await readSupabaseText(databaseBlobPath);
+    if (!existing) {
+      await writeSupabaseFile(
+        databaseBlobPath,
+        JSON.stringify(emptyDatabase, null, 2),
+        "application/json",
+      );
+    }
+    return;
+  }
+
   if (hasBlobStorageConfigured()) {
     const existing = await readPrivateBlobText(databaseBlobPath);
     if (!existing) {
@@ -43,9 +60,11 @@ async function ensureDatabase() {
 
 async function readDatabase() {
   await ensureDatabase();
-  const raw = hasBlobStorageConfigured()
-    ? await readPrivateBlobText(databaseBlobPath)
-    : await readFile(databasePath, "utf8");
+  const raw = hasSupabaseStorageConfigured()
+    ? await readSupabaseText(databaseBlobPath)
+    : hasBlobStorageConfigured()
+      ? await readPrivateBlobText(databaseBlobPath)
+      : await readFile(databasePath, "utf8");
 
   if (!raw) {
     return emptyDatabase;
@@ -56,6 +75,15 @@ async function readDatabase() {
 
 async function writeDatabase(database: Database) {
   await ensureDatabase();
+
+  if (hasSupabaseStorageConfigured()) {
+    await writeSupabaseFile(
+      databaseBlobPath,
+      JSON.stringify(database, null, 2),
+      "application/json",
+    );
+    return;
+  }
 
   if (hasBlobStorageConfigured()) {
     await writePrivateBlob(databaseBlobPath, JSON.stringify(database, null, 2));
