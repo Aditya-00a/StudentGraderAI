@@ -1,13 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
 
-const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "student-grader-ai";
+function getTrimmedEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function getSupabaseConfig() {
+  return {
+    url: getTrimmedEnvValue("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"),
+    serviceRoleKey: getTrimmedEnvValue("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY"),
+    bucketName: getTrimmedEnvValue("SUPABASE_STORAGE_BUCKET") || "student-grader-ai",
+  };
+}
 
 function getSupabaseClient() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const config = getSupabaseConfig();
+
+  if (!config.url || !config.serviceRoleKey) {
     return null;
   }
 
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(config.url, config.serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -16,11 +35,27 @@ function getSupabaseClient() {
 }
 
 export function hasSupabaseStorageConfigured() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const config = getSupabaseConfig();
+  return Boolean(config.url && config.serviceRoleKey);
+}
+
+export function getSupabaseBucketName() {
+  return getSupabaseConfig().bucketName;
+}
+
+export function getSupabaseEnvDiagnostics() {
+  const config = getSupabaseConfig();
+
+  return {
+    urlDetected: Boolean(config.url),
+    serviceRoleKeyDetected: Boolean(config.serviceRoleKey),
+    bucketName: config.bucketName,
+  };
 }
 
 export async function readSupabaseText(pathname: string) {
   const client = getSupabaseClient();
+  const { bucketName } = getSupabaseConfig();
   if (!client) {
     return null;
   }
@@ -38,6 +73,7 @@ export async function readSupabaseText(pathname: string) {
 
 export async function readSupabaseBuffer(pathname: string) {
   const client = getSupabaseClient();
+  const { bucketName } = getSupabaseConfig();
   if (!client) {
     return null;
   }
@@ -59,6 +95,7 @@ export async function writeSupabaseFile(
   contentType = "application/octet-stream",
 ) {
   const client = getSupabaseClient();
+  const { bucketName } = getSupabaseConfig();
   if (!client) {
     throw new Error("Supabase storage is not configured.");
   }
@@ -74,6 +111,8 @@ export async function writeSupabaseFile(
 }
 
 export async function checkSupabaseStorageHealth() {
+  const { bucketName } = getSupabaseConfig();
+
   if (!hasSupabaseStorageConfigured()) {
     return {
       ok: false,

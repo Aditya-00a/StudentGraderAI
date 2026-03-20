@@ -2,7 +2,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
-import { checkSupabaseStorageHealth, hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
+import {
+  checkSupabaseStorageHealth,
+  getSupabaseBucketName,
+  getSupabaseEnvDiagnostics,
+  hasSupabaseStorageConfigured,
+} from "@/lib/supabase-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +23,7 @@ export default async function ProfessorDebugPage() {
   }
 
   const supabaseHealth = await checkSupabaseStorageHealth();
+  const supabaseEnv = getSupabaseEnvDiagnostics();
 
   const checks = [
     {
@@ -30,11 +36,11 @@ export default async function ProfessorDebugPage() {
     },
     {
       label: "Supabase URL detected",
-      value: Boolean(process.env.SUPABASE_URL),
+      value: supabaseEnv.urlDetected,
     },
     {
       label: "Supabase service role key detected",
-      value: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      value: supabaseEnv.serviceRoleKeyDetected,
     },
     {
       label: "Supabase storage configured",
@@ -75,7 +81,11 @@ export default async function ProfessorDebugPage() {
           ))}
         </div>
         <div className="mt-6 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
-          Supabase bucket name: {process.env.SUPABASE_STORAGE_BUCKET || "student-grader-ai"}
+          Supabase bucket name: {getSupabaseBucketName()}
+        </div>
+        <div className="mt-4 rounded-[1rem] border border-slate-200/80 bg-white/80 px-4 py-3 text-sm leading-7 text-slate-700">
+          Accepted variable names: <code>SUPABASE_URL</code> or <code>NEXT_PUBLIC_SUPABASE_URL</code>,
+          plus <code>SUPABASE_SERVICE_ROLE_KEY</code> or <code>SUPABASE_SERVICE_KEY</code>.
         </div>
         <div
           className={`mt-4 rounded-[1rem] px-4 py-3 text-sm ${
