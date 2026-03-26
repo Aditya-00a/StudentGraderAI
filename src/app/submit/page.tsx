@@ -17,31 +17,10 @@ type StudentSubmitPageProps = {
 export default async function StudentSubmitPage({ searchParams }: StudentSubmitPageProps) {
   const { error, submitted } = await searchParams;
   const user = isLocalAuthEnabled() ? await getCurrentUserFromCookies() : null;
+  const isPreviewMode = Boolean(user && user.role !== "student");
 
   if (isLocalAuthEnabled() && !user) {
     redirect("/login?next=/submit");
-  }
-
-  if (user && user.role !== "student") {
-    return (
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="glass-panel rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
-          <span className="pill">Faculty and admin area</span>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Student workspaces are reserved for students.
-          </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-            Your account has broader access. Use the dashboard to review all uploads, ratings, and
-            workspaces.
-          </p>
-          <div className="mt-6">
-            <Link className="button-primary" href="/">
-              Open dashboard
-            </Link>
-          </div>
-        </section>
-      </main>
-    );
   }
 
   let assignments: Assignment[] = [];
@@ -64,7 +43,7 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
       <section className="glass-panel rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
         <div className="space-y-5">
-          <span className="pill">Student workspace</span>
+          <span className="pill">{isPreviewMode ? "Student portal preview" : "Student workspace"}</span>
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
             Upload your project and test your own sandbox workspace.
           </h1>
@@ -80,6 +59,13 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
           </div>
         </div>
       </section>
+
+      {isPreviewMode ? (
+        <section className="glass-panel rounded-[1.5rem] border border-sky-300/70 bg-sky-50/80 px-5 py-4 text-sm leading-7 text-sky-950">
+          You are opening the student portal with a {user?.role} account for testing. You can submit
+          work here with this same email, and you will still keep full dashboard access.
+        </section>
+      ) : null}
 
       {submitted ? (
         <section className="glass-panel rounded-[1.5rem] border border-emerald-300/70 bg-emerald-50/80 px-5 py-4 text-sm leading-7 text-emerald-950">

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     ? getCurrentUserFromCookieHeader(request.headers.get("cookie"))
     : null;
 
-  if (isLocalAuthEnabled() && (!currentUser || currentUser.role !== "student")) {
+  if (isLocalAuthEnabled() && !currentUser) {
     return NextResponse.redirect(buildRequestUrl(request, "/login?next=/submit"), 303);
   }
 
