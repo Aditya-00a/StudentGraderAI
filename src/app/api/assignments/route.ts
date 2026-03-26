@@ -7,6 +7,7 @@ import {
   isProfessorAccessConfigured,
   userHasRole,
 } from "@/lib/auth";
+import { buildRequestUrl } from "@/lib/request-url";
 import { createAssignment } from "@/lib/store";
 import { generateRubricSuggestion } from "@/lib/rubric";
 
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     : null;
 
   if (isLocalAuthEnabled() && (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"]))) {
-    return NextResponse.redirect(new URL("/login?next=/", request.url), 303);
+    return NextResponse.redirect(buildRequestUrl(request, "/login?next=/"), 303);
   }
 
   if (
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     isProfessorAccessConfigured() &&
     !hasProfessorSessionCookie(request.headers.get("cookie"))
   ) {
-    return NextResponse.redirect(new URL("/professor-login?next=/", request.url), 303);
+    return NextResponse.redirect(buildRequestUrl(request, "/professor-login?next=/"), 303);
   }
 
   const formData = await request.formData();
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     rubric: formData.get("rubric"),
   });
 
-  const redirectUrl = new URL("/", request.url);
+  const redirectUrl = buildRequestUrl(request, "/");
   redirectUrl.hash = "professor-console";
 
   if (!parsed.success) {

@@ -6,6 +6,7 @@ import {
   isLocalAuthEnabled,
   shouldUseSecureCookies,
 } from "@/lib/auth";
+import { buildRequestUrl } from "@/lib/request-url";
 
 export const runtime = "nodejs";
 
@@ -16,12 +17,12 @@ export async function POST(request: Request) {
   const nextPath = String(formData.get("next") ?? "/");
 
   if (!isLocalAuthEnabled()) {
-    return NextResponse.redirect(new URL("/login?error=not-ready", request.url), 303);
+    return NextResponse.redirect(buildRequestUrl(request, "/login?error=not-ready"), 303);
   }
 
   const user = authenticateLocalUser(email, password);
   if (!user) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = buildRequestUrl(request, "/login");
     loginUrl.searchParams.set("error", "invalid-credentials");
     loginUrl.searchParams.set("next", nextPath.startsWith("/") ? nextPath : "/");
     return NextResponse.redirect(loginUrl, 303);
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       : "/";
 
   const session = createAppSession(user.id);
-  const response = NextResponse.redirect(new URL(redirectTarget, request.url), 303);
+  const response = NextResponse.redirect(buildRequestUrl(request, redirectTarget), 303);
   response.cookies.set(appSessionCookie, session.token, {
     httpOnly: true,
     sameSite: "lax",

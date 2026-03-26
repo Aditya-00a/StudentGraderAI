@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUserFromCookieHeader, isLocalAuthEnabled } from "@/lib/auth";
+import { buildRequestUrl } from "@/lib/request-url";
 import { collectSubmissionArtifacts, persistUploadedFiles } from "@/lib/repository-intake";
 import { gradeSubmission } from "@/lib/grading";
 import {
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     : null;
 
   if (isLocalAuthEnabled() && (!currentUser || currentUser.role !== "student")) {
-    return NextResponse.redirect(new URL("/login?next=/submit", request.url), 303);
+    return NextResponse.redirect(buildRequestUrl(request, "/login?next=/submit"), 303);
   }
 
   const formData = await request.formData();
@@ -113,13 +114,13 @@ export async function POST(request: Request) {
     return NextResponse.redirect(buildSubmitRedirect(request, "submission"), 303);
   }
 
-  const redirectUrl = new URL("/submit", request.url);
+  const redirectUrl = buildRequestUrl(request, "/submit");
   redirectUrl.searchParams.set("submitted", "1");
   return NextResponse.redirect(redirectUrl, 303);
 }
 
 function buildSubmitRedirect(request: Request, error: string) {
-  const redirectUrl = new URL("/submit", request.url);
+  const redirectUrl = buildRequestUrl(request, "/submit");
   redirectUrl.searchParams.set("error", error);
   return redirectUrl;
 }
