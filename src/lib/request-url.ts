@@ -1,12 +1,17 @@
 import "server-only";
 
 export function getRequestOrigin(request: Request) {
+  const configuredOrigin = (process.env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (configuredOrigin) {
+    return configuredOrigin;
+  }
+
   const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
   const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
   const host = forwardedHost || request.headers.get("host")?.trim();
 
   if (host) {
-    const proto = forwardedProto || (host.startsWith("localhost") ? "http" : "http");
+    const proto = forwardedProto || "http";
     return `${proto}://${host}`;
   }
 
