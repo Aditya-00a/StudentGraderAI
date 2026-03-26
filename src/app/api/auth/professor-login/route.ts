@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
-import { isProfessorAccessConfigured, isProfessorPasswordValid, professorSessionCookie } from "@/lib/auth";
+import {
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+  isProfessorPasswordValid,
+  professorSessionCookie,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (isLocalAuthEnabled()) {
+    return NextResponse.redirect(new URL("/login", request.url), 303);
+  }
+
   const formData = await request.formData();
   const password = String(formData.get("password") ?? "");
   const nextPath = String(formData.get("next") ?? "/");

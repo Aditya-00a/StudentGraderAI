@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import {
+  getCurrentUserFromCookieHeader,
+  hasProfessorSessionCookie,
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+  userHasRole,
+} from "@/lib/auth";
 import { generateRubricSuggestion } from "@/lib/rubric";
 
 export const runtime = "nodejs";
@@ -13,7 +19,16 @@ const rubricRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const currentUser = isLocalAuthEnabled()
+    ? getCurrentUserFromCookieHeader(request.headers.get("cookie"))
+    : null;
+
+  if (isLocalAuthEnabled() && (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"]))) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   if (
+    !isLocalAuthEnabled() &&
     isProfessorAccessConfigured() &&
     !hasProfessorSessionCookie(request.headers.get("cookie"))
   ) {

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import {
+  getCurrentUserFromCookieHeader,
+  hasProfessorSessionCookie,
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+  userHasRole,
+} from "@/lib/auth";
 import { createAssignment } from "@/lib/store";
 import { generateRubricSuggestion } from "@/lib/rubric";
 
@@ -16,7 +22,16 @@ const assignmentSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const currentUser = isLocalAuthEnabled()
+    ? getCurrentUserFromCookieHeader(request.headers.get("cookie"))
+    : null;
+
+  if (isLocalAuthEnabled() && (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"]))) {
+    return NextResponse.redirect(new URL("/login?next=/", request.url), 303);
+  }
+
   if (
+    !isLocalAuthEnabled() &&
     isProfessorAccessConfigured() &&
     !hasProfessorSessionCookie(request.headers.get("cookie"))
   ) {

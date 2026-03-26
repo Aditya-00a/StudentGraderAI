@@ -1,4 +1,17 @@
 export type SubmissionStatus = "processing" | "graded" | "failed";
+export type AppRole = "student" | "faculty" | "admin";
+
+export type AppUser = {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: AppRole;
+  mustChangePassword: boolean;
+  active: boolean;
+  createdAt: string;
+};
 
 export type Assignment = {
   id: string;
@@ -33,6 +46,8 @@ export type Submission = {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
+  ownerUserId?: string | null;
+  ownerRole?: AppRole | null;
   studentName: string;
   studentEmail: string;
   githubUrl: string | null;

@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import {
+  getCurrentUserFromCookieHeader,
+  hasProfessorSessionCookie,
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+} from "@/lib/auth";
 import { getSubmissionById } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -20,7 +25,13 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
     .map((item) => `${item.name}=${item.value}`)
     .join("; ");
 
-  if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
+  const currentUser = isLocalAuthEnabled() ? getCurrentUserFromCookieHeader(cookieHeader) : null;
+
+  if (isLocalAuthEnabled()) {
+    if (!currentUser) {
+      redirect("/login?next=/submissions");
+    }
+  } else if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
     redirect("/professor-login?next=/submissions");
   }
 
@@ -60,6 +71,14 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
   }
 
   if (!submission) {
+    notFound();
+  }
+
+  if (
+    currentUser &&
+    currentUser.role === "student" &&
+    submission.studentEmail.trim().toLowerCase() !== currentUser.email.trim().toLowerCase()
+  ) {
     notFound();
   }
 

@@ -107,6 +107,14 @@ export async function listSubmissions() {
   );
 }
 
+export async function listSubmissionsByStudentEmail(studentEmail: string) {
+  const normalizedEmail = studentEmail.trim().toLowerCase();
+  const database = await readDatabase();
+  return database.submissions
+    .filter((submission) => submission.studentEmail.trim().toLowerCase() === normalizedEmail)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 export async function getAssignmentById(id: string) {
   const database = await readDatabase();
   return database.assignments.find((assignment) => assignment.id === id) ?? null;
@@ -135,6 +143,8 @@ export async function createSubmission(
     Submission,
     | "assignmentId"
     | "assignmentTitle"
+    | "ownerUserId"
+    | "ownerRole"
     | "studentName"
     | "studentEmail"
     | "githubUrl"

@@ -3,7 +3,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AssignmentForm } from "@/components/assignment-form";
 import { getAiProviderDiagnostics, hasAiProviderConfigured } from "@/lib/ai-provider";
-import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import {
+  getCurrentUserFromCookies,
+  hasProfessorSessionCookie,
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+} from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
@@ -21,14 +26,26 @@ type HomePageProps = {
 };
 
 export default async function Home({ searchParams }: HomePageProps) {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((item) => `${item.name}=${item.value}`)
-    .join("; ");
+  if (isLocalAuthEnabled()) {
+    const user = await getCurrentUserFromCookies();
 
-  if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
-    redirect("/professor-login?next=/");
+    if (!user) {
+      redirect("/login?next=/");
+    }
+
+    if (user.role === "student") {
+      redirect("/submit");
+    }
+  } else {
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((item) => `${item.name}=${item.value}`)
+      .join("; ");
+
+    if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
+      redirect("/professor-login?next=/");
+    }
   }
 
   let assignments: Assignment[] = [];

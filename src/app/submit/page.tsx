@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUserFromCookies, isLocalAuthEnabled } from "@/lib/auth";
 import { StudentSubmissionForm } from "@/components/student-submission-form";
-import { listAssignments } from "@/lib/store";
-import type { Assignment } from "@/lib/types";
+import { listAssignments, listSubmissionsByStudentEmail } from "@/lib/store";
+import type { Assignment, Submission } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +16,43 @@ type StudentSubmitPageProps = {
 
 export default async function StudentSubmitPage({ searchParams }: StudentSubmitPageProps) {
   const { error, submitted } = await searchParams;
+  const user = isLocalAuthEnabled() ? await getCurrentUserFromCookies() : null;
+
+  if (isLocalAuthEnabled() && !user) {
+    redirect("/login?next=/submit");
+  }
+
+  if (user && user.role !== "student") {
+    return (
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="glass-panel rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
+          <span className="pill">Faculty and admin area</span>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+            Student workspaces are reserved for students.
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+            Your account has broader access. Use the dashboard to review all uploads, ratings, and
+            workspaces.
+          </p>
+          <div className="mt-6">
+            <Link className="button-primary" href="/">
+              Open dashboard
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   let assignments: Assignment[] = [];
+  let submissions: Submission[] = [];
   let storageError: string | null = null;
 
   try {
     assignments = await listAssignments();
+    if (user) {
+      submissions = await listSubmissionsByStudentEmail(user.email);
+    }
   } catch (loadError) {
     storageError =
       loadError instanceof Error
@@ -30,19 +64,19 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
       <section className="glass-panel rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
         <div className="space-y-5">
-          <span className="pill">Student submission portal</span>
+          <span className="pill">Student workspace</span>
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Submit your project without access to the professor dashboard.
+            Upload your project and test your own sandbox workspace.
           </h1>
           <p className="max-w-2xl text-lg leading-8 text-slate-600">
-            Choose your assignment, add your GitHub repository or files, and send your work for
-            review. Assignment setup, grading notes, and overview screens stay private to the
-            professor.
+            Signed in as <strong>{user ? `${user.firstName} ${user.lastName}` : "student"}</strong>. Your
+            workspace is private to your account, while faculty and admins can review all uploads,
+            ratings, and future sandbox runs.
           </p>
           <div className="flex flex-wrap gap-3">
             <span className="pill">GitHub link or uploads</span>
-            <span className="pill">One shared form for every assignment</span>
-            <span className="pill">Professor reviews results privately</span>
+            <span className="pill">Private student workspace</span>
+            <span className="pill">Faculty/admin review everything</span>
           </div>
         </div>
       </section>
@@ -93,12 +127,57 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
             No assignments are open yet. Check back after the professor publishes one.
           </div>
         ) : (
-          <StudentSubmissionForm assignments={assignments} />
+          <StudentSubmissionForm
+            assignments={assignments}
+            studentEmail={user?.email ?? ""}
+            studentName={user ? `${user.firstName} ${user.lastName}`.trim() : ""}
+          />
         )}
       </section>
 
+      <section className="glass-panel rounded-[1.75rem] p-6 sm:p-7">
+        <div className="mb-6 space-y-2">
+          <span className="pill">Your uploads</span>
+          <h2 className="text-2xl font-semibold text-slate-900">Submission history</h2>
+          <p className="text-sm leading-7 text-slate-600">
+            You can only see your own submissions here.
+          </p>
+        </div>
+        <div className="space-y-4">
+          {submissions.length === 0 ? (
+            <div className="rounded-[1.25rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm leading-7 text-slate-600">
+              No submissions yet. Your uploads will appear here after the first submission.
+            </div>
+          ) : (
+            submissions.map((submission) => (
+              <article
+                key={submission.id}
+                className="rounded-[1.25rem] border border-slate-200/80 bg-white/78 p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="pill">{submission.assignmentTitle}</span>
+                      <span className="pill">{submission.status}</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      {submission.gradingSummary ??
+                        submission.errorMessage ??
+                        "Processing is still underway for this upload."}
+                    </p>
+                  </div>
+                  <Link className="button-secondary text-sm" href={`/submissions/${submission.id}`}>
+                    Open
+                  </Link>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
       <div className="text-sm text-slate-600">
-        Looking for the professor dashboard? <Link className="underline" href="/professor-login">Professor sign in</Link>
+        Need a different view? <Link className="underline" href="/">Go to the main dashboard</Link>
       </div>
     </main>
   );

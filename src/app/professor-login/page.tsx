@@ -1,4 +1,5 @@
-import { isProfessorAccessConfigured } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { isLocalAuthEnabled, isProfessorAccessConfigured } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,10 @@ type ProfessorLoginPageProps = {
 };
 
 export default async function ProfessorLoginPage({ searchParams }: ProfessorLoginPageProps) {
+  if (isLocalAuthEnabled()) {
+    redirect("/login");
+  }
+
   const { error, next } = await searchParams;
   const isConfigured = isProfessorAccessConfigured();
 

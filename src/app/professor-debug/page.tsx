@@ -1,7 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAiProviderDiagnostics } from "@/lib/ai-provider";
-import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
+import {
+  getCurrentUserFromCookieHeader,
+  hasProfessorSessionCookie,
+  isLocalAuthEnabled,
+  isProfessorAccessConfigured,
+  userHasRole,
+} from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import {
   checkSupabaseStorageHealth,
@@ -19,7 +25,13 @@ export default async function ProfessorDebugPage() {
     .map((item) => `${item.name}=${item.value}`)
     .join("; ");
 
-  if (isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
+  const currentUser = isLocalAuthEnabled() ? getCurrentUserFromCookieHeader(cookieHeader) : null;
+
+  if (isLocalAuthEnabled() && (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"]))) {
+    redirect("/login?next=/professor-debug");
+  }
+
+  if (!isLocalAuthEnabled() && isProfessorAccessConfigured() && !hasProfessorSessionCookie(cookieHeader)) {
     redirect("/professor-login?next=/professor-debug");
   }
 

@@ -5,9 +5,15 @@ import type { Assignment } from "@/lib/types";
 
 type StudentSubmissionFormProps = {
   assignments: Assignment[];
+  studentName: string;
+  studentEmail: string;
 };
 
-export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProps) {
+export function StudentSubmissionForm({
+  assignments,
+  studentName,
+  studentEmail,
+}: StudentSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
@@ -31,27 +37,13 @@ export function StudentSubmissionForm({ assignments }: StudentSubmissionFormProp
           ))}
         </select>
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm font-medium text-slate-700">
-          Student name
-          <input
-            className="field"
-            name="studentName"
-            placeholder="Your full name"
-            required
-          />
-        </label>
-        <label className="space-y-2 text-sm font-medium text-slate-700">
-          Student email
-          <input
-            className="field"
-            name="studentEmail"
-            type="email"
-            placeholder="netid@nyu.edu"
-            required
-          />
-        </label>
+      <div className="rounded-[1.25rem] border border-slate-200/80 bg-white/80 p-4 text-sm leading-7 text-slate-700">
+        <p className="font-semibold text-slate-900">Signed in as</p>
+        <p className="mt-1">{studentName}</p>
+        <p className="text-slate-500">{studentEmail}</p>
       </div>
+      <input type="hidden" name="studentName" value={studentName} />
+      <input type="hidden" name="studentEmail" value={studentEmail} />
       <label className="space-y-2 text-sm font-medium text-slate-700">
         Public GitHub repository
         <input
