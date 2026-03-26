@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getCurrentUserFromCookieHeader, isLocalAuthEnabled } from "@/lib/auth";
 import { collectSubmissionArtifacts, persistUploadedFiles } from "@/lib/repository-intake";
 import { gradeSubmission } from "@/lib/grading";
 import {
@@ -31,6 +32,14 @@ const submissionSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const currentUser = isLocalAuthEnabled()
+    ? getCurrentUserFromCookieHeader(request.headers.get("cookie"))
+    : null;
+
+  if (isLocalAuthEnabled() && (!currentUser || currentUser.role !== "student")) {
+    return NextResponse.redirect(new URL("/login?next=/submit", request.url), 303);
+  }
+
   const formData = await request.formData();
   const files = formData
     .getAll("projectFiles")
@@ -59,6 +68,8 @@ export async function POST(request: Request) {
     const submission = await createSubmission({
       assignmentId: assignment.id,
       assignmentTitle: assignment.title,
+      ownerUserId: currentUser?.id ?? null,
+      ownerRole: currentUser?.role ?? null,
       studentName: parsed.data.studentName,
       studentEmail: parsed.data.studentEmail,
       githubUrl: parsed.data.githubUrl,

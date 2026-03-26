@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { appSessionCookie, clearAppSession, professorSessionCookie } from "@/lib/auth";
+import {
+  appSessionCookie,
+  clearAppSession,
+  professorSessionCookie,
+  shouldUseSecureCookies,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -9,14 +14,14 @@ export async function POST(request: Request) {
   response.cookies.set(appSessionCookie, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 0,
   });
   response.cookies.set(professorSessionCookie, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 0,
   });

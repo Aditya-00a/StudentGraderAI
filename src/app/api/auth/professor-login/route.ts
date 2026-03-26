@@ -4,6 +4,7 @@ import {
   isProfessorAccessConfigured,
   isProfessorPasswordValid,
   professorSessionCookie,
+  shouldUseSecureCookies,
 } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   response.cookies.set(professorSessionCookie, "1", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 60 * 60 * 12,
   });

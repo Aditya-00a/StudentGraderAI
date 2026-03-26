@@ -127,3 +127,18 @@ export function clearAppSession(cookieHeader: string | null) {
 export function userHasRole(role: AppRole, allowedRoles: AppRole[]) {
   return allowedRoles.includes(role);
 }
+
+export function shouldUseSecureCookies() {
+  const explicit = (process.env.SESSION_COOKIE_SECURE || "").trim().toLowerCase();
+
+  if (explicit === "true") {
+    return true;
+  }
+
+  if (explicit === "false") {
+    return false;
+  }
+
+  const appUrl = (process.env.APP_BASE_URL || "").trim().toLowerCase();
+  return appUrl.startsWith("https://");
+}

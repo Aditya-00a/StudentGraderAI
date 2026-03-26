@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { authenticateLocalUser, appSessionCookie, createAppSession, isLocalAuthEnabled } from "@/lib/auth";
+import {
+  authenticateLocalUser,
+  appSessionCookie,
+  createAppSession,
+  isLocalAuthEnabled,
+  shouldUseSecureCookies,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -32,7 +38,7 @@ export async function POST(request: Request) {
   response.cookies.set(appSessionCookie, session.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 60 * 60 * 24 * 14,
   });
