@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AssignmentForm } from "@/components/assignment-form";
+import { getAiProviderDiagnostics, hasAiProviderConfigured } from "@/lib/ai-provider";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
@@ -48,6 +49,7 @@ export default async function Home({ searchParams }: HomePageProps) {
   const gradedSubmissions = submissions.filter((submission) =>
     typeof submission.score === "number",
   );
+  const aiProvider = getAiProviderDiagnostics();
   const averageScore =
     gradedSubmissions.length > 0
       ? gradedSubmissions.reduce((sum, submission) => sum + (submission.score ?? 0), 0) /
@@ -91,13 +93,17 @@ export default async function Home({ searchParams }: HomePageProps) {
         </div>
       </section>
 
-      {!process.env.GEMINI_API_KEY ? (
+      {!hasAiProviderConfigured() ? (
         <section className="glass-panel rounded-[1.5rem] border border-amber-300/70 bg-amber-50/75 px-5 py-4 text-sm text-amber-950">
-          Add <code>GEMINI_API_KEY</code> to this deployment&apos;s environment variables to enable
-          grading. Students can still submit work, but analysis will stay in a failed state until
-          the key is available on the server.
+          No AI grading provider is configured. Set <code>AI_PROVIDER=ollama</code> with <code>OLLAMA_MODEL</code>,
+          or configure Gemini with <code>GEMINI_API_KEY</code>. Students can still submit work, but
+          analysis will stay in a failed state until the provider is available on the server.
         </section>
       ) : null}
+
+      <section className="glass-panel rounded-[1.5rem] border border-slate-200/80 bg-white/75 px-5 py-4 text-sm leading-7 text-slate-700">
+        Active AI provider: <strong>{aiProvider.provider === "none" ? "Not configured" : aiProvider.provider}</strong>
+      </section>
 
       {process.env.VERCEL && !hasSupabaseStorageConfigured() && !hasBlobStorageConfigured() ? (
         <section className="glass-panel rounded-[1.5rem] border border-amber-300/70 bg-amber-50/75 px-5 py-4 text-sm leading-7 text-amber-950">
@@ -132,7 +138,7 @@ export default async function Home({ searchParams }: HomePageProps) {
             : params.reason === "supabase-env"
               ? "Supabase storage is not configured on the server. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
               : params.reason === "gemini-env"
-                ? "Gemini is not configured on the server. Add GEMINI_API_KEY, or type the rubric manually and try again."
+                ? "The AI provider is not configured on the server. Set AI_PROVIDER=ollama with OLLAMA_MODEL, or configure Gemini with GEMINI_API_KEY. You can also type the rubric manually and try again."
                 : "There was a problem saving the assignment. Check the form and try again."}
           <div className="mt-3">
             <Link className="underline" href="/professor-debug">

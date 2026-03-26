@@ -1,5 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import {
+  generateStructuredObject,
+  getAiProviderName,
+  hasAiProviderConfigured,
+} from "@/lib/ai-provider";
 
 const rubricSuggestionSchema = z.object({
   gradingFocus: z.string().min(12).max(1200),
@@ -12,18 +16,15 @@ export async function generateRubricSuggestion(input: {
   description: string;
   maxScore: number;
 }) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasAiProviderConfigured()) {
     return buildFallbackRubric(input);
   }
 
-  const client = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  });
-
   try {
-    const response = await client.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-      contents: [
+    const raw = await generateStructuredObject({
+      geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      ollamaModel: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b",
+      prompt: [
         `Assignment title: ${input.title}`,
         `Course or module: ${input.courseCode}`,
         `Maximum score: ${input.maxScore}`,
@@ -36,31 +37,20 @@ export async function generateRubricSuggestion(input: {
         `Use a total scale of ${input.maxScore}.`,
         "Return plain language with criterion names, suggested points, and what strong work should demonstrate.",
       ].join("\n"),
-      config: {
-        systemInstruction:
-          "You help professors create clear grading rubrics. Be concise, concrete, and classroom-friendly.",
-        responseMimeType: "application/json",
-        responseJsonSchema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            gradingFocus: { type: "string" },
-            rubric: { type: "string" },
-          },
-          required: ["gradingFocus", "rubric"],
+      systemInstruction:
+        "You help professors create clear grading rubrics. Be concise, concrete, and classroom-friendly.",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          gradingFocus: { type: "string" },
+          rubric: { type: "string" },
         },
+        required: ["gradingFocus", "rubric"],
       },
     });
 
-    if (!response.text) {
-      return buildFallbackRubric(input);
-    }
-
-    try {
-      return rubricSuggestionSchema.parse(JSON.parse(response.text));
-    } catch {
-      return buildFallbackRubric(input);
-    }
+    return rubricSuggestionSchema.parse(raw);
   } catch {
     return buildFallbackRubric(input);
   }
@@ -78,7 +68,8 @@ function buildFallbackRubric(input: {
 
   return {
     gradingFocus:
-      "Evaluate how well the submission meets the assignment requirements, the quality of the implementation, clarity of explanation, and overall completeness.",
+      "Evaluate how well the submission meets the assignment requirements, the quality of the implementation, clarity of explanation, and overall completeness." +
+      (getAiProviderName() === "ollama" ? " Use conservative scoring if the local model is uncertain." : ""),
     rubric: [
       `${input.title} (${input.courseCode}) suggested rubric`,
       "",

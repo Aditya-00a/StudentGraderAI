@@ -1,6 +1,6 @@
 # StudentGraderAI
 
-StudentGraderAI is an AI-powered grading portal for professors. It lets instructors create assignments with custom rubrics, lets students submit GitHub repositories or uploaded files, and generates a score plus written feedback using Gemini.
+StudentGraderAI is an AI-powered grading portal for professors. It lets instructors create assignments with custom rubrics, lets students submit GitHub repositories or uploaded files, and generates a score plus written feedback using either Gemini or a local Ollama model.
 
 ## Why this exists
 
@@ -38,6 +38,7 @@ This project is an MVP for exactly that workflow.
 - React 19
 - Tailwind CSS 4
 - Gemini API via `@google/genai`
+- Ollama-compatible local model support
 - Zod for validation
 - JSZip for archive analysis
 - Local JSON persistence for assignments/submissions
@@ -50,8 +51,8 @@ This project is an MVP for exactly that workflow.
 3. The professor edits the generated rubric before saving if needed.
 4. A student submits a GitHub repo, files, or both.
 5. The app reads text-based source files from the submission.
-6. The app sends the assignment rubric plus sampled project evidence to Gemini.
-7. Gemini returns structured JSON with a score and feedback.
+6. The app sends the assignment rubric plus sampled project evidence to the configured AI provider.
+7. Gemini or Ollama returns structured JSON with a score and feedback.
 8. The app stores the result and renders a grading report page for the professor dashboard.
 
 ## Local setup
@@ -65,7 +66,10 @@ This project is an MVP for exactly that workflow.
 2. Create `.env.local` and add your keys:
 
    ```bash
-   GEMINI_API_KEY=your_key_here
+   AI_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://127.0.0.1:11434
+   OLLAMA_MODEL=qwen2.5-coder:7b
+   GEMINI_API_KEY=
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=optional_for_higher_github_rate_limits
    PERSISTENCE_ROOT=
@@ -90,8 +94,11 @@ If port `3000` is already busy, Next.js will usually move to the next free port 
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | Yes | Enables AI grading through Gemini |
+| `AI_PROVIDER` | Recommended | `ollama` for local models or `gemini` for Gemini |
+| `GEMINI_API_KEY` | Required for Gemini | Enables AI grading through Gemini |
 | `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` |
+| `OLLAMA_BASE_URL` | No | Defaults to `http://127.0.0.1:11434` |
+| `OLLAMA_MODEL` | Required for Ollama | Local model name, for example `qwen2.5-coder:7b` |
 | `GITHUB_TOKEN` | No | Helps avoid GitHub API rate limits |
 | `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
 | `PROFESSOR_ACCESS_KEY` | Recommended | Protects the professor dashboard and grading results |
@@ -113,7 +120,10 @@ If you deploy on Vercel, connect either Supabase Storage or Vercel Blob. Without
 3. Add environment variables:
 
    ```bash
-   GEMINI_API_KEY=your_key_here
+   AI_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://127.0.0.1:11434
+   OLLAMA_MODEL=qwen2.5-coder:7b
+   GEMINI_API_KEY=
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=
    PERSISTENCE_ROOT=/data
@@ -195,7 +205,7 @@ storage/     # generated locally
 
 ## Model choice
 
-This project currently uses `gemini-2.5-flash` because it is a strong low-cost/free-tier option for structured grading output and quick responses.
+This project supports either `gemini-2.5-flash` or a local Ollama model. For a self-hosted university machine, Ollama is the best fit because the app already downloads GitHub repositories and uploaded files itself before sending compact evidence to the model.
 
 Official docs:
 

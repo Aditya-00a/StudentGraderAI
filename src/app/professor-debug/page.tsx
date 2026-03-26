@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getAiProviderDiagnostics } from "@/lib/ai-provider";
 import { hasProfessorSessionCookie, isProfessorAccessConfigured } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import {
@@ -24,6 +25,7 @@ export default async function ProfessorDebugPage() {
 
   const supabaseHealth = await checkSupabaseStorageHealth();
   const supabaseEnv = getSupabaseEnvDiagnostics();
+  const aiProvider = getAiProviderDiagnostics();
 
   const checks = [
     {
@@ -31,8 +33,16 @@ export default async function ProfessorDebugPage() {
       value: Boolean(process.env.PROFESSOR_ACCESS_KEY),
     },
     {
+      label: "AI provider configured",
+      value: aiProvider.configured,
+    },
+    {
       label: "Gemini API key detected",
-      value: Boolean(process.env.GEMINI_API_KEY),
+      value: aiProvider.geminiKeyDetected,
+    },
+    {
+      label: "Ollama model detected",
+      value: Boolean(aiProvider.ollamaModel),
     },
     {
       label: "Supabase URL detected",
@@ -81,6 +91,15 @@ export default async function ProfessorDebugPage() {
           ))}
         </div>
         <div className="mt-6 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
+          AI provider: {aiProvider.provider}
+        </div>
+        <div className="mt-4 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
+          Ollama base URL: {aiProvider.ollamaBaseUrl}
+        </div>
+        <div className="mt-4 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
+          Ollama model: {aiProvider.ollamaModel || "Not set"}
+        </div>
+        <div className="mt-4 rounded-[1rem] bg-slate-950 px-4 py-3 text-sm text-slate-100">
           Supabase bucket name: {getSupabaseBucketName()}
         </div>
         <div className="mt-4 rounded-[1rem] border border-slate-200/80 bg-white/80 px-4 py-3 text-sm leading-7 text-slate-700">

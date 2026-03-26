@@ -109,7 +109,7 @@ export function AssignmentForm({ initialDescription = "" }: AssignmentFormProps)
       </label>
       <div className="rounded-[1rem] border border-slate-200/80 bg-white/75 px-4 py-3 text-sm leading-7 text-slate-600">
         The rubric is generated from the assignment description and score scale, then you can edit
-        it before saving. If Gemini is unavailable, the server can still draft a fallback rubric
+        it before saving. If the AI provider is unavailable, the server can still draft a fallback rubric
         when you submit.
       </div>
       <label className="space-y-2 text-sm font-medium text-slate-700 sm:col-span-2">

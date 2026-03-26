@@ -1,5 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import { generateStructuredObject, hasAiProviderConfigured } from "@/lib/ai-provider";
+import { gradingResponseJsonSchema } from "@/lib/grading-schema";
 import type { Assignment, CollectedArtifact, GradingResult, Submission } from "@/lib/types";
 
 const limits = {
@@ -39,9 +40,9 @@ export async function gradeSubmission({
   artifacts: CollectedArtifact[];
   githubRepositoryLabel: string | null;
 }) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasAiProviderConfigured()) {
     throw new Error(
-      "GEMINI_API_KEY is missing from the server environment. Add it to the deployment environment variables to enable AI grading.",
+      "No AI provider is configured on the server. Set AI_PROVIDER=ollama with OLLAMA_MODEL, or configure Gemini with GEMINI_API_KEY.",
     );
   }
 
@@ -51,10 +52,6 @@ export async function gradeSubmission({
     );
   }
 
-  const client = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  });
-
   const evidenceBlock = artifacts
     .map(
       (artifact) =>
@@ -62,9 +59,12 @@ export async function gradeSubmission({
     )
     .join("\n");
 
-  const response = await client.models.generateContent({
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    contents: [
+  const raw = await generateStructuredObject({
+    geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    ollamaModel: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b",
+    systemInstruction:
+      "You are a fair but demanding professor assistant. Grade only from the provided evidence. Never invent features that are not present. If the repository is incomplete, say that clearly and score conservatively. Feedback should be specific, constructive, and written in plain language a student can act on.",
+    prompt: [
       `Assignment title: ${assignment.title}`,
       `Course: ${assignment.courseCode}`,
       `Maximum score: ${assignment.maxScore}`,
@@ -82,70 +82,10 @@ export async function gradeSubmission({
       "Submission evidence:",
       evidenceBlock,
     ].join("\n"),
-    config: {
-      systemInstruction:
-        "You are a fair but demanding professor assistant. Grade only from the provided evidence. Never invent features that are not present. If the repository is incomplete, say that clearly and score conservatively. Feedback should be specific, constructive, and written in plain language a student can act on.",
-      responseMimeType: "application/json",
-      responseJsonSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          score: {
-            type: "number",
-            minimum: 0,
-            maximum: assignment.maxScore,
-          },
-          gradingSummary: { type: "string" },
-          strengths: {
-            type: "array",
-            items: { type: "string" },
-            minItems: 2,
-            maxItems: 5,
-          },
-          improvements: {
-            type: "array",
-            items: { type: "string" },
-            minItems: 2,
-            maxItems: 5,
-          },
-          rubricBreakdown: {
-            type: "array",
-            minItems: 2,
-            maxItems: 6,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                criterion: { type: "string" },
-                score: {
-                  type: "number",
-                  minimum: 0,
-                  maximum: assignment.maxScore,
-                },
-                feedback: { type: "string" },
-              },
-              required: ["criterion", "score", "feedback"],
-            },
-          },
-          professorFeedback: { type: "string" },
-        },
-        required: [
-          "score",
-          "gradingSummary",
-          "strengths",
-          "improvements",
-          "rubricBreakdown",
-          "professorFeedback",
-        ],
-      },
-    },
+    schema: gradingResponseJsonSchema as unknown as Record<string, unknown>,
   });
 
-  if (!response.text) {
-    throw new Error("The Gemini grader returned an empty response.");
-  }
-
-  const parsed = gradingResponseSchema.parse(sanitizeGradingPayload(JSON.parse(response.text)));
+  const parsed = gradingResponseSchema.parse(sanitizeGradingPayload(raw));
 
   return {
     score: clamp(parsed.score, 0, assignment.maxScore),
@@ -199,8 +139,7 @@ function normalizeRubricBreakdown(value: unknown) {
 
       return {
         criterion: normalizeText(entry?.criterion, limits.criterion),
-        score:
-          typeof entry?.score === "number" ? entry.score : Number(entry?.score ?? 0),
+        score: typeof entry?.score === "number" ? entry.score : Number(entry?.score ?? 0),
         feedback: normalizeText(entry?.feedback, limits.rubricFeedback),
       };
     })
@@ -216,5 +155,5 @@ function normalizeText(value: unknown, maximum: number) {
     return compact;
   }
 
-  return compact.slice(0, maximum - 1).trimEnd() + "…";
+  return compact.slice(0, maximum - 3).trimEnd() + "...";
 }

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       redirectUrl.searchParams.set("reason", "supabase-storage");
     } else if (/Supabase storage is not configured/i.test(message)) {
       redirectUrl.searchParams.set("reason", "supabase-env");
-    } else if (/GEMINI_API_KEY/i.test(message)) {
+    } else if (/GEMINI_API_KEY|No AI provider is configured|OLLAMA_MODEL/i.test(message)) {
       redirectUrl.searchParams.set("reason", "gemini-env");
     } else {
       redirectUrl.searchParams.set("reason", "server");
