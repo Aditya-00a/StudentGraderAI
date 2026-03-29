@@ -18,6 +18,7 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
   const { error, submitted } = await searchParams;
   const user = isLocalAuthEnabled() ? await getCurrentUserFromCookies() : null;
   const isPreviewMode = Boolean(user && user.role !== "student");
+  const isStudentView = user?.role === "student";
 
   if (isLocalAuthEnabled() && !user) {
     redirect("/login?next=/submit");
@@ -147,9 +148,15 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
                       <span className="pill">{submission.status}</span>
                     </div>
                     <p className="mt-3 text-sm leading-7 text-slate-600">
-                      {submission.gradingSummary ??
-                        submission.errorMessage ??
-                        "Processing is still underway for this upload."}
+                      {isStudentView
+                        ? submission.status === "failed"
+                          ? "This submission hit a processing issue. You can still open the workspace and continue testing while faculty review it."
+                          : submission.status === "graded"
+                            ? "Your project workspace is ready. Open it to chat with Gemma and run the GitHub project on the DGX."
+                            : "Your upload is being processed. Open the workspace to follow the project and continue testing."
+                        : submission.gradingSummary ??
+                          submission.errorMessage ??
+                          "Processing is still underway for this upload."}
                     </p>
                   </div>
                   <Link className="button-secondary text-sm" href={`/submissions/${submission.id}`}>

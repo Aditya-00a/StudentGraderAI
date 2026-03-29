@@ -84,6 +84,76 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
   }
 
   const appearance = getStatusAppearance(submission.status);
+  const isStudentView = currentUser?.role === "student";
+
+  if (isStudentView) {
+    return (
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="glass-panel rounded-[2rem] p-6 sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <span className="pill">
+                  <span className="status-dot" style={{ backgroundColor: appearance.dot }} />
+                  {appearance.label}
+                </span>
+                <span className="pill">{submission.assignmentTitle}</span>
+                <span className="pill">{formatDate(submission.createdAt)}</span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                  Project workspace
+                </h1>
+                <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+                  Chat with Gemma about your project, inspect sandbox run logs from the DGX, and
+                  keep improving the repository. Faculty and admins can review grading separately,
+                  but students do not see grading details here.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link className="button-secondary" href="/submit">
+                Back to workspace list
+              </Link>
+              {submission.githubUrl ? (
+                <a
+                  className="button-secondary"
+                  href={submission.githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open GitHub repository
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        {submission.status === "failed" ? (
+          <section className="glass-panel rounded-[1.75rem] border border-rose-300/70 bg-rose-50/75 p-6 text-sm leading-7 text-rose-950">
+            <h2 className="text-xl font-semibold text-rose-950">Submission processing needs attention</h2>
+            <p className="mt-3">
+              {submission.errorMessage ??
+                "The server had trouble processing this submission. Faculty can review the deployment details."}
+            </p>
+          </section>
+        ) : null}
+
+        <SubmissionWorkspace
+          submissionId={submission.id}
+          assignmentTitle={submission.assignmentTitle}
+          studentName={submission.studentName}
+          createdAt={submission.createdAt}
+          notes={submission.notes}
+          githubUrl={submission.githubUrl}
+          analyzedFiles={submission.analyzedFiles}
+          initialChatHistory={submission.chatHistory}
+          initialSandboxRuns={submission.sandboxRuns}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -278,9 +348,14 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
 
       <SubmissionWorkspace
         submissionId={submission.id}
+        assignmentTitle={submission.assignmentTitle}
+        studentName={submission.studentName}
+        createdAt={submission.createdAt}
+        notes={submission.notes}
+        githubUrl={submission.githubUrl}
+        analyzedFiles={submission.analyzedFiles}
         initialChatHistory={submission.chatHistory}
         initialSandboxRuns={submission.sandboxRuns}
-        githubUrl={submission.githubUrl}
       />
     </main>
   );

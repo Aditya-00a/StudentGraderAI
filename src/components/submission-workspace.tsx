@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type {
+  ArtifactPreview,
   SandboxRuntime,
   SubmissionChatMessage,
   SubmissionSandboxRun,
@@ -9,16 +10,26 @@ import type {
 
 type SubmissionWorkspaceProps = {
   submissionId: string;
+  assignmentTitle: string;
+  studentName: string;
+  createdAt: string;
+  notes: string | null;
+  githubUrl: string | null;
+  analyzedFiles: ArtifactPreview[];
   initialChatHistory: SubmissionChatMessage[];
   initialSandboxRuns: SubmissionSandboxRun[];
-  githubUrl: string | null;
 };
 
 export function SubmissionWorkspace({
   submissionId,
+  assignmentTitle,
+  studentName,
+  createdAt,
+  notes,
+  githubUrl,
+  analyzedFiles,
   initialChatHistory,
   initialSandboxRuns,
-  githubUrl,
 }: SubmissionWorkspaceProps) {
   const [chatHistory, setChatHistory] = useState(initialChatHistory);
   const [question, setQuestion] = useState("");
@@ -70,7 +81,9 @@ export function SubmissionWorkspace({
       ]);
       setQuestion("");
     } catch (error) {
-      setChatError(error instanceof Error ? error.message : "The project chat is unavailable right now.");
+      setChatError(
+        error instanceof Error ? error.message : "The project chat is unavailable right now.",
+      );
     } finally {
       setIsChatting(false);
     }
@@ -119,40 +132,184 @@ export function SubmissionWorkspace({
         throw new Error(payload.error || "The DGX sandbox did not return a run result.");
       }
 
-      setSandboxRuns((current) => [payload.run!, ...current.filter((item) => item.id !== payload.run!.id)]);
+      setSandboxRuns((current) => [
+        payload.run!,
+        ...current.filter((item) => item.id !== payload.run!.id),
+      ]);
     } catch (error) {
-      setRunError(error instanceof Error ? error.message : "The DGX sandbox could not run this project.");
+      setRunError(
+        error instanceof Error ? error.message : "The DGX sandbox could not run this project.",
+      );
     } finally {
       setIsRunning(false);
     }
   }
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-      <div className="glass-panel rounded-[1.75rem] p-6 sm:p-7">
-        <span className="pill">Ask Gemma</span>
-        <h2 className="mt-4 text-2xl font-semibold text-slate-900">Project chat</h2>
-        <p className="mt-3 text-sm leading-7 text-slate-600">
-          Ask about architecture, bugs, missing pieces, setup steps, or how to improve the project.
-          Gemma answers from the uploaded files and GitHub repository attached to this submission.
-        </p>
+    <section className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+        <section className="glass-panel rounded-[1.75rem] p-5 sm:p-6">
+          <span className="pill">Project</span>
+          <h2 className="mt-4 text-2xl font-semibold text-slate-900">{assignmentTitle}</h2>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            This workspace is for testing and improving your project with Gemma. Grades stay visible
+            only to faculty and admins.
+          </p>
 
-        <div className="mt-5 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+          <dl className="mt-5 grid gap-3 text-sm">
+            <SidebarRow label="Owner" value={studentName} />
+            <SidebarRow
+              label="Submitted"
+              value={new Date(createdAt).toLocaleString()}
+            />
+            <SidebarRow label="Artifacts" value={String(analyzedFiles.length)} />
+            <SidebarRow label="GitHub" value={githubUrl ? "Connected" : "Missing"} />
+          </dl>
+
+          {githubUrl ? (
+            <a
+              className="button-secondary mt-5 w-full"
+              href={githubUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open repository
+            </a>
+          ) : null}
+
+          {notes ? (
+            <div className="mt-5 rounded-[1.1rem] bg-white/80 p-4">
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">
+                Your notes
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-700">{notes}</p>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="glass-panel rounded-[1.75rem] p-5 sm:p-6">
+          <span className="pill">Run on DGX</span>
+          <h2 className="mt-4 text-xl font-semibold text-slate-900">Sandbox test</h2>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            Run the GitHub project inside a Docker container on the DGX and inspect the logs.
+          </p>
+
+          <form className="mt-5 grid gap-4" onSubmit={handleRunSandbox}>
+            <label className="space-y-2 text-sm font-medium text-slate-700">
+              Runtime
+              <select
+                className="field"
+                value={runtime}
+                onChange={(event) => setRuntime(event.target.value as SandboxRuntime)}
+              >
+                <option value="node">Node.js</option>
+                <option value="python">Python</option>
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium text-slate-700">
+              Setup command
+              <input
+                className="field"
+                value={setupCommand}
+                onChange={(event) => setSetupCommand(event.target.value)}
+                placeholder={runtime === "python" ? "pip install -r requirements.txt" : "npm install"}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-slate-700">
+              Run command
+              <input
+                className="field"
+                value={runCommand}
+                onChange={(event) => setRunCommand(event.target.value)}
+                placeholder={runtime === "python" ? "python app.py" : "npm run build"}
+                required
+              />
+            </label>
+
+            {!githubUrl ? (
+              <div className="rounded-[1rem] border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                A public GitHub repository is required for DGX runs.
+              </div>
+            ) : null}
+
+            {runError ? (
+              <div className="rounded-[1rem] border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-950">
+                {runError}
+              </div>
+            ) : null}
+
+            <button className="button-primary w-full" type="submit" disabled={isRunning || !githubUrl}>
+              {isRunning ? "Running on DGX..." : "Run on DGX"}
+            </button>
+          </form>
+
+          <div className="mt-6 space-y-3">
+            {sandboxRuns.length === 0 ? (
+              <div className="rounded-[1.1rem] border border-dashed border-slate-300 bg-white/55 px-4 py-5 text-sm leading-7 text-slate-600">
+                No sandbox runs yet.
+              </div>
+            ) : (
+              sandboxRuns.map((run) => (
+                <article
+                  key={run.id}
+                  className="rounded-[1.1rem] border border-slate-200/80 bg-white/82 p-4"
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <span className="pill">{run.runtime}</span>
+                    <span className="pill">{run.status}</span>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-slate-700">
+                    {run.summary ?? "The DGX sandbox is still running."}
+                  </p>
+                  <div className="mt-3 rounded-[1rem] bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100">
+                    <p className="font-mono uppercase tracking-[0.22em] text-slate-400">
+                      Exit code
+                    </p>
+                    <p className="mt-2">{run.exitCode === null ? "--" : run.exitCode}</p>
+                    <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap break-words text-slate-200">
+                      {run.logs || "No logs captured yet."}
+                    </pre>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          {latestRun ? (
+            <p className="mt-4 text-xs leading-6 text-slate-500">
+              Latest sandbox status: <strong>{latestRun.status}</strong>
+            </p>
+          ) : null}
+        </section>
+      </aside>
+
+      <section className="glass-panel flex min-h-[48rem] flex-col rounded-[1.75rem] p-5 sm:p-6">
+        <div className="border-b border-slate-200/80 pb-4">
+          <span className="pill">Ask Gemma</span>
+          <h2 className="mt-4 text-2xl font-semibold text-slate-900">Project chat</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+            Talk through bugs, setup issues, architecture choices, missing pieces, or deployment
+            concerns. Gemma answers from the code and files attached to this project.
+          </p>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto py-5 pr-1">
           {chatHistory.length === 0 ? (
-            <div className="rounded-[1.1rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm leading-7 text-slate-600">
-              No chat yet. Ask Gemma how your project works, what might break, or how to improve it.
+            <div className="flex h-full min-h-72 items-center justify-center rounded-[1.4rem] border border-dashed border-slate-300 bg-white/60 px-6 text-center text-sm leading-7 text-slate-600">
+              Start the conversation by asking Gemma what looks broken, how to improve your README,
+              or why your GitHub project may fail on the DGX.
             </div>
           ) : (
             chatHistory.map((message) => (
               <article
                 key={message.id}
-                className={`rounded-[1.1rem] px-4 py-4 text-sm leading-7 ${
+                className={`max-w-4xl rounded-[1.4rem] px-5 py-4 text-sm leading-7 shadow-sm ${
                   message.role === "assistant"
-                    ? "border border-sky-200/80 bg-sky-50/85 text-sky-950"
-                    : "border border-slate-200/80 bg-white/82 text-slate-900"
+                    ? "mr-12 border border-slate-200/80 bg-white/90 text-slate-900"
+                    : "ml-auto max-w-3xl border border-emerald-300/60 bg-emerald-50/90 text-emerald-950"
                 }`}
               >
-                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-slate-500">
                   {message.role === "assistant" ? "Gemma" : "You"}
                 </p>
                 <p className="mt-2 whitespace-pre-wrap">{message.content}</p>
@@ -161,121 +318,46 @@ export function SubmissionWorkspace({
           )}
         </div>
 
-        <form className="mt-5 grid gap-3" onSubmit={handleAskGemma}>
+        <form
+          className="border-t border-slate-200/80 pt-4"
+          onSubmit={handleAskGemma}
+        >
           <label className="space-y-2 text-sm font-medium text-slate-700">
-            Ask about this project
+            Message
             <textarea
               className="field min-h-28"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="What is the biggest issue in my repo? How should I structure the README? Why might this fail on the DGX?"
+              placeholder="Ask Gemma about your code, setup, architecture, debugging, or deployment..."
             />
           </label>
+
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-6 text-slate-500">
+              Grades stay hidden from students. This workspace is for testing, debugging, and
+              improving the project itself.
+            </p>
+            <button className="button-primary sm:min-w-40" type="submit" disabled={isChatting}>
+              {isChatting ? "Gemma is thinking..." : "Send"}
+            </button>
+          </div>
+
           {chatError ? (
-            <div className="rounded-[1rem] border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-950">
+            <div className="mt-3 rounded-[1rem] border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-950">
               {chatError}
             </div>
           ) : null}
-          <button className="button-primary" type="submit" disabled={isChatting}>
-            {isChatting ? "Gemma is thinking..." : "Ask Gemma"}
-          </button>
         </form>
-      </div>
-
-      <div className="glass-panel rounded-[1.75rem] p-6 sm:p-7">
-        <span className="pill">Run on DGX</span>
-        <h2 className="mt-4 text-2xl font-semibold text-slate-900">Sandbox run check</h2>
-        <p className="mt-3 text-sm leading-7 text-slate-600">
-          This runs the GitHub repository inside a Docker container on the DGX, not directly on the
-          host. For now, the DGX runner only works with public GitHub repositories and explicit
-          setup or run commands.
-        </p>
-
-        <form className="mt-5 grid gap-4" onSubmit={handleRunSandbox}>
-          <label className="space-y-2 text-sm font-medium text-slate-700">
-            Runtime
-            <select
-              className="field"
-              value={runtime}
-              onChange={(event) => setRuntime(event.target.value as SandboxRuntime)}
-            >
-              <option value="node">Node.js project</option>
-              <option value="python">Python project</option>
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-slate-700">
-            Setup command
-            <input
-              className="field"
-              value={setupCommand}
-              onChange={(event) => setSetupCommand(event.target.value)}
-              placeholder={runtime === "python" ? "pip install -r requirements.txt" : "npm install"}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-slate-700">
-            Run or test command
-            <input
-              className="field"
-              value={runCommand}
-              onChange={(event) => setRunCommand(event.target.value)}
-              placeholder={runtime === "python" ? "python app.py" : "npm run build"}
-              required
-            />
-          </label>
-          {!githubUrl ? (
-            <div className="rounded-[1rem] border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              Add a public GitHub repository to use the DGX sandbox runner.
-            </div>
-          ) : null}
-          {runError ? (
-            <div className="rounded-[1rem] border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-950">
-              {runError}
-            </div>
-          ) : null}
-          <button className="button-primary" type="submit" disabled={isRunning || !githubUrl}>
-            {isRunning ? "Running on DGX..." : "Run on DGX"}
-          </button>
-        </form>
-
-        <div className="mt-6 space-y-4">
-          {sandboxRuns.length === 0 ? (
-            <div className="rounded-[1.1rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm leading-7 text-slate-600">
-              No DGX runs yet. Start one to check whether the repository installs and runs the way you expect.
-            </div>
-          ) : (
-            sandboxRuns.map((run) => (
-              <article
-                key={run.id}
-                className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 p-4"
-              >
-                <div className="flex flex-wrap gap-2">
-                  <span className="pill">{run.runtime}</span>
-                  <span className="pill">{run.status}</span>
-                  <span className="pill">{new Date(run.startedAt).toLocaleString()}</span>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-slate-700">
-                  {run.summary ?? "The DGX sandbox is still working on this run."}
-                </p>
-                <div className="mt-4 rounded-[1rem] bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100">
-                  <p className="font-mono uppercase tracking-[0.22em] text-slate-400">
-                    Exit code
-                  </p>
-                  <p className="mt-2">{run.exitCode === null ? "--" : run.exitCode}</p>
-                  <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap break-words text-slate-200">
-                    {run.logs || "No logs captured yet."}
-                  </pre>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-
-        {latestRun ? (
-          <p className="mt-4 text-xs leading-6 text-slate-500">
-            Latest run status: <strong>{latestRun.status}</strong>
-          </p>
-        ) : null}
-      </div>
+      </section>
     </section>
+  );
+}
+
+function SidebarRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1rem] bg-white/78 px-4 py-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-medium text-slate-900">{value}</p>
+    </div>
   );
 }
