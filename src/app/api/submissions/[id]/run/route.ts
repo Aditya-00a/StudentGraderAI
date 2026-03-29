@@ -11,9 +11,9 @@ import {
 export const runtime = "nodejs";
 
 const runSchema = z.object({
-  runtime: z.enum(["node", "python"]),
+  runtime: z.enum(["node", "python"]).optional(),
   setupCommand: z.string().trim().max(500).optional().default(""),
-  runCommand: z.string().trim().min(2).max(500),
+  runCommand: z.string().trim().max(500).optional().default(""),
 });
 
 export async function POST(
@@ -65,9 +65,9 @@ export async function POST(
   }
 
   const run = await createSubmissionSandboxRun(id, {
-    runtime: parsed.data.runtime,
+    runtime: parsed.data.runtime ?? "node",
     setupCommand: parsed.data.setupCommand || null,
-    runCommand: parsed.data.runCommand,
+    runCommand: parsed.data.runCommand || "Auto-detect",
   });
 
   if (!run) {
@@ -77,12 +77,15 @@ export async function POST(
   try {
     const result = await runGithubProjectSandboxCheck({
       githubUrl: submission.githubUrl,
-      runtime: parsed.data.runtime,
+      runtime: parsed.data.runtime ?? null,
       setupCommand: parsed.data.setupCommand || null,
-      runCommand: parsed.data.runCommand,
+      runCommand: parsed.data.runCommand || null,
     });
 
     const updated = await updateSubmissionSandboxRun(id, run.id, {
+      runtime: result.runtime,
+      setupCommand: result.setupCommand,
+      runCommand: result.runCommand,
       status: result.exitCode === 0 ? "completed" : "failed",
       summary: result.summary,
       logs: result.logs,

@@ -42,6 +42,7 @@ export function SubmissionWorkspace({
   const [runCommand, setRunCommand] = useState("npm run build");
   const [runError, setRunError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [showAdvancedRunOptions, setShowAdvancedRunOptions] = useState(false);
 
   const latestRun = useMemo(() => sandboxRuns[0] ?? null, [sandboxRuns]);
 
@@ -97,25 +98,21 @@ export function SubmissionWorkspace({
       return;
     }
 
-    const nextRunCommand = runCommand.trim();
-    if (!nextRunCommand) {
-      setRunError("Add a run or test command first.");
-      return;
-    }
-
     setIsRunning(true);
     setRunError(null);
 
     try {
+      const nextRunCommand = runCommand.trim();
+      const nextSetupCommand = setupCommand.trim();
       const response = await fetch(`/api/submissions/${submissionId}/run`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          runtime,
-          setupCommand,
-          runCommand: nextRunCommand,
+          runtime: showAdvancedRunOptions ? runtime : undefined,
+          setupCommand: showAdvancedRunOptions ? nextSetupCommand : "",
+          runCommand: showAdvancedRunOptions ? nextRunCommand : "",
         }),
       });
 
@@ -191,44 +188,74 @@ export function SubmissionWorkspace({
           <span className="pill">Run on DGX</span>
           <h2 className="mt-4 text-xl font-semibold text-slate-900">Sandbox test</h2>
           <p className="mt-3 text-sm leading-7 text-slate-600">
-            Run the GitHub project inside a Docker container on the DGX and inspect the logs.
+            Use the quick check if you want the system to try common project commands automatically.
+            Only open advanced commands if your project needs something custom.
           </p>
 
           <form className="mt-5 grid gap-4" onSubmit={handleRunSandbox}>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Runtime
-              <select
-                className="field"
-                value={runtime}
-                onChange={(event) => setRuntime(event.target.value as SandboxRuntime)}
-              >
-                <option value="node">Node.js</option>
-                <option value="python">Python</option>
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Setup command
-              <input
-                className="field"
-                value={setupCommand}
-                onChange={(event) => setSetupCommand(event.target.value)}
-                placeholder={runtime === "python" ? "pip install -r requirements.txt" : "npm install"}
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium text-slate-700">
-              Run command
-              <input
-                className="field"
-                value={runCommand}
-                onChange={(event) => setRunCommand(event.target.value)}
-                placeholder={runtime === "python" ? "python app.py" : "npm run build"}
-                required
-              />
-            </label>
+            <div className="rounded-[1rem] border border-slate-200/80 bg-white/78 px-4 py-4 text-sm leading-7 text-slate-700">
+              Quick check will inspect the repository, choose a likely runtime, install dependencies,
+              and try a common build, test, or run command for the project.
+            </div>
 
             {!githubUrl ? (
               <div className="rounded-[1rem] border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
                 A public GitHub repository is required for DGX runs.
+              </div>
+            ) : null}
+
+            <button className="button-primary w-full" type="submit" disabled={isRunning || !githubUrl}>
+              {isRunning ? "Running on DGX..." : "Quick check on DGX"}
+            </button>
+
+            <button
+              className="button-secondary w-full"
+              type="button"
+              onClick={() => setShowAdvancedRunOptions((current) => !current)}
+            >
+              {showAdvancedRunOptions ? "Hide advanced commands" : "Advanced commands"}
+            </button>
+
+            {showAdvancedRunOptions ? (
+              <div className="grid gap-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 p-4">
+                <label className="space-y-2 text-sm font-medium text-slate-700">
+                  Runtime
+                  <select
+                    className="field"
+                    value={runtime}
+                    onChange={(event) => setRuntime(event.target.value as SandboxRuntime)}
+                  >
+                    <option value="node">Node.js</option>
+                    <option value="python">Python</option>
+                  </select>
+                </label>
+                <label className="space-y-2 text-sm font-medium text-slate-700">
+                  Setup command
+                  <input
+                    className="field"
+                    value={setupCommand}
+                    onChange={(event) => setSetupCommand(event.target.value)}
+                    placeholder={
+                      runtime === "python" ? "pip install -r requirements.txt" : "npm install"
+                    }
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-slate-700">
+                  Run command
+                  <input
+                    className="field"
+                    value={runCommand}
+                    onChange={(event) => setRunCommand(event.target.value)}
+                    placeholder={runtime === "python" ? "python app.py" : "npm run build"}
+                  />
+                </label>
+                <button
+                  className="button-secondary w-full"
+                  type="submit"
+                  disabled={isRunning || !githubUrl}
+                >
+                  {isRunning ? "Running custom command..." : "Run with advanced commands"}
+                </button>
               </div>
             ) : null}
 
@@ -237,10 +264,6 @@ export function SubmissionWorkspace({
                 {runError}
               </div>
             ) : null}
-
-            <button className="button-primary w-full" type="submit" disabled={isRunning || !githubUrl}>
-              {isRunning ? "Running on DGX..." : "Run on DGX"}
-            </button>
           </form>
 
           <div className="mt-6 space-y-3">

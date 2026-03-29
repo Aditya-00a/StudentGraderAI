@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -20,9 +20,9 @@ export async function runGithubProjectSandboxCheck({
   runCommand,
 }: {
   githubUrl: string;
-  runtime: SandboxRuntime;
+  runtime?: SandboxRuntime | null;
   setupCommand: string | null;
-  runCommand: string;
+  runCommand?: string | null;
 }) {
   const repo = parseGithubRepository(githubUrl);
   if (!repo) {
@@ -34,18 +34,20 @@ export async function runGithubProjectSandboxCheck({
 
   try {
     await downloadGithubRepository(repo, repoRoot);
-    const image = runtimeImages[runtime];
+    const plan = await detectSandboxPlan({
+      repoRoot,
+      preferredRuntime: runtime ?? null,
+      customSetupCommand: setupCommand,
+      customRunCommand: runCommand,
+    });
+    const image = runtimeImages[plan.runtime];
     const commands = [shellPrefix];
 
-    if (setupCommand?.trim()) {
-      commands.push(setupCommand.trim());
-    } else if (runtime === "node") {
-      commands.push(defaultNodeSetup());
-    } else if (runtime === "python") {
-      commands.push(defaultPythonSetup(repoRoot));
+    if (plan.setupCommand) {
+      commands.push(plan.setupCommand);
     }
 
-    commands.push(runCommand.trim());
+    commands.push(plan.runCommand);
 
     const result = await runDockerCommand({
       image,
@@ -53,11 +55,12 @@ export async function runGithubProjectSandboxCheck({
       command: commands.join(" && "),
     });
 
-    const summary = buildRunSummary(result.exitCode, runtime);
-
     return {
+      runtime: plan.runtime,
+      setupCommand: plan.setupCommand,
+      runCommand: plan.runCommand,
       ...result,
-      summary,
+      summary: buildRunSummary(result.exitCode, plan.runtime),
     };
   } finally {
     await rm(workRoot, { recursive: true, force: true }).catch(() => undefined);
@@ -185,14 +188,133 @@ function runDockerCommand({
   });
 }
 
-function defaultNodeSetup() {
-  return "npm install";
-}
-
 function defaultPythonSetup(repoRoot: string) {
   const requirementsPath = path.join(repoRoot, "requirements.txt");
   const pyprojectPath = path.join(repoRoot, "pyproject.toml");
   return `python -m pip install --upgrade pip && if [ -f "${requirementsPath}" ]; then pip install -r requirements.txt; elif [ -f "${pyprojectPath}" ]; then pip install .; else echo "No requirements.txt or pyproject.toml found, skipping dependency install."; fi`;
+}
+
+async function detectSandboxPlan({
+  repoRoot,
+  preferredRuntime,
+  customSetupCommand,
+  customRunCommand,
+}: {
+  repoRoot: string;
+  preferredRuntime: SandboxRuntime | null;
+  customSetupCommand: string | null;
+  customRunCommand: string | null | undefined;
+}) {
+  const runtime = preferredRuntime ?? (await detectRuntime(repoRoot));
+  const setupCommand = customSetupCommand?.trim() || (await detectSetupCommand(repoRoot, runtime));
+  const runCommand = customRunCommand?.trim() || (await detectRunCommand(repoRoot, runtime));
+
+  if (!runCommand) {
+    throw new Error(
+      "The DGX runner could not detect how to run this repository automatically. Open Advanced commands and add the project’s startup or test command.",
+    );
+  }
+
+  return {
+    runtime,
+    setupCommand,
+    runCommand,
+  };
+}
+
+async function detectRuntime(repoRoot: string): Promise<SandboxRuntime> {
+  if (await fileExists(path.join(repoRoot, "package.json"))) {
+    return "node";
+  }
+
+  if (
+    (await fileExists(path.join(repoRoot, "requirements.txt"))) ||
+    (await fileExists(path.join(repoRoot, "pyproject.toml"))) ||
+    (await fileExists(path.join(repoRoot, "app.py"))) ||
+    (await fileExists(path.join(repoRoot, "main.py")))
+  ) {
+    return "python";
+  }
+
+  return "node";
+}
+
+async function detectSetupCommand(repoRoot: string, runtime: SandboxRuntime) {
+  if (runtime === "node") {
+    if (await fileExists(path.join(repoRoot, "package-lock.json"))) {
+      return "npm ci";
+    }
+
+    if (await fileExists(path.join(repoRoot, "package.json"))) {
+      return "npm install";
+    }
+
+    return null;
+  }
+
+  return defaultPythonSetup(repoRoot);
+}
+
+async function detectRunCommand(repoRoot: string, runtime: SandboxRuntime) {
+  if (runtime === "node") {
+    const packageJson = await readPackageJson(repoRoot);
+    const scripts = packageJson?.scripts ?? {};
+
+    if (typeof scripts.build === "string") return "npm run build";
+    if (typeof scripts.test === "string") return "npm test";
+    if (typeof scripts.lint === "string") return "npm run lint";
+    if (typeof scripts.start === "string") return "npm start";
+
+    return null;
+  }
+
+  if (await fileExists(path.join(repoRoot, "pytest.ini")) || (await directoryExists(path.join(repoRoot, "tests")))) {
+    return "pytest";
+  }
+
+  if (await fileExists(path.join(repoRoot, "app.py"))) {
+    return "python app.py";
+  }
+
+  if (await fileExists(path.join(repoRoot, "main.py"))) {
+    return "python main.py";
+  }
+
+  return null;
+}
+
+async function readPackageJson(repoRoot: string) {
+  const packageJsonPath = path.join(repoRoot, "package.json");
+
+  if (!(await fileExists(packageJsonPath))) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(await readFile(packageJsonPath, "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fileExists(filePath: string) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function directoryExists(directoryPath: string) {
+  try {
+    await access(directoryPath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseGithubRepository(githubUrl: string) {
