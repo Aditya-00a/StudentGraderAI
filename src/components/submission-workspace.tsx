@@ -284,6 +284,14 @@ export function SubmissionWorkspace({
                   <p className="mt-3 text-sm leading-7 text-slate-700">
                     {run.summary ?? "The DGX sandbox is still running."}
                   </p>
+                  {run.studentExplanation ? (
+                    <div className="mt-3 rounded-[1rem] border border-sky-200/80 bg-sky-50/85 px-4 py-3 text-sm leading-7 text-sky-950">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-sky-700">
+                        What went wrong
+                      </p>
+                      <p className="mt-2">{run.studentExplanation}</p>
+                    </div>
+                  ) : null}
                   <div className="mt-3 rounded-[1rem] bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100">
                     <p className="font-mono uppercase tracking-[0.22em] text-slate-400">
                       Exit code

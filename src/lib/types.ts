@@ -59,6 +59,7 @@ export type SubmissionSandboxRun = {
   runCommand: string;
   status: SandboxRunStatus;
   summary: string | null;
+  studentExplanation: string | null;
   logs: string;
   exitCode: number | null;
   startedAt: string;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUserFromCookieHeader, isLocalAuthEnabled, userHasRole } from "@/lib/auth";
+import { explainSandboxRunFailure } from "@/lib/sandbox-feedback";
 import { runGithubProjectSandboxCheck } from "@/lib/sandbox-runner";
 import {
   createSubmissionSandboxRun,
@@ -82,12 +83,23 @@ export async function POST(
       runCommand: parsed.data.runCommand || null,
     });
 
+    const studentExplanation =
+      result.exitCode === 0
+        ? "The DGX quick check finished successfully. You can still review the logs if you want more detail."
+        : await explainSandboxRunFailure({
+            runtime: result.runtime,
+            setupCommand: result.setupCommand,
+            runCommand: result.runCommand,
+            logs: result.logs,
+          });
+
     const updated = await updateSubmissionSandboxRun(id, run.id, {
       runtime: result.runtime,
       setupCommand: result.setupCommand,
       runCommand: result.runCommand,
       status: result.exitCode === 0 ? "completed" : "failed",
       summary: result.summary,
+      studentExplanation,
       logs: result.logs,
       exitCode: result.exitCode,
       finishedAt: new Date().toISOString(),
@@ -103,6 +115,7 @@ export async function POST(
     const updated = await updateSubmissionSandboxRun(id, run.id, {
       status: "failed",
       summary: message,
+      studentExplanation: message,
       logs: message,
       exitCode: 1,
       finishedAt: new Date().toISOString(),

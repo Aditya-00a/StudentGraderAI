@@ -228,7 +228,10 @@ export async function appendSubmissionChatMessage(
 
 export async function createSubmissionSandboxRun(
   submissionId: string,
-  input: Omit<SubmissionSandboxRun, "id" | "startedAt" | "finishedAt" | "status" | "summary" | "logs" | "exitCode">,
+  input: Omit<
+    SubmissionSandboxRun,
+    "id" | "startedAt" | "finishedAt" | "status" | "summary" | "studentExplanation" | "logs" | "exitCode"
+  >,
 ) {
   return mutateDatabase(async (database) => {
     const submission = database.submissions.find((item) => item.id === submissionId);
@@ -243,6 +246,7 @@ export async function createSubmissionSandboxRun(
       finishedAt: null,
       status: "running",
       summary: null,
+      studentExplanation: null,
       logs: "",
       exitCode: null,
       ...input,
@@ -348,7 +352,12 @@ function normalizeSubmission(submission: Submission): Submission {
     improvements: Array.isArray(submission.improvements) ? submission.improvements : [],
     rubricBreakdown: Array.isArray(submission.rubricBreakdown) ? submission.rubricBreakdown : [],
     chatHistory: Array.isArray(submission.chatHistory) ? submission.chatHistory : [],
-    sandboxRuns: Array.isArray(submission.sandboxRuns) ? submission.sandboxRuns : [],
+    sandboxRuns: Array.isArray(submission.sandboxRuns)
+      ? submission.sandboxRuns.map((run) => ({
+          ...run,
+          studentExplanation: run.studentExplanation ?? null,
+        }))
+      : [],
   };
 }
 
