@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type {
   ArtifactPreview,
   SandboxRuntime,
+  StudentProjectOverview,
   SubmissionChatMessage,
   SubmissionSandboxRun,
 } from "@/lib/types";
@@ -16,6 +17,7 @@ type SubmissionWorkspaceProps = {
   notes: string | null;
   githubUrl: string | null;
   analyzedFiles: ArtifactPreview[];
+  projectOverview: StudentProjectOverview | null;
   initialChatHistory: SubmissionChatMessage[];
   initialSandboxRuns: SubmissionSandboxRun[];
 };
@@ -28,6 +30,7 @@ export function SubmissionWorkspace({
   notes,
   githubUrl,
   analyzedFiles,
+  projectOverview,
   initialChatHistory,
   initialSandboxRuns,
 }: SubmissionWorkspaceProps) {
@@ -323,6 +326,48 @@ export function SubmissionWorkspace({
             concerns. Gemma answers from the code and files attached to this project.
           </p>
         </div>
+
+        {projectOverview ? (
+          <section className="mt-5 rounded-[1.4rem] border border-slate-200/80 bg-white/86 p-5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-slate-500">
+              Project snapshot
+            </p>
+            <p className="mt-3 text-sm leading-7 text-slate-700">{projectOverview.summary}</p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {projectOverview.detectedStack.map((item) => (
+                <span key={item} className="pill">
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[1.1rem] bg-emerald-50/80 px-4 py-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-emerald-700">
+                  What to do next
+                </p>
+                <ul className="mt-3 grid gap-2 text-sm leading-7 text-emerald-950">
+                  {projectOverview.whatToDoNext.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-[1.1rem] bg-amber-50/90 px-4 py-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-700">
+                  Watch out for
+                </p>
+                <ul className="mt-3 grid gap-2 text-sm leading-7 text-amber-950">
+                  {projectOverview.watchOutFor.length === 0 ? (
+                    <li>• No major issues were automatically flagged yet.</li>
+                  ) : (
+                    projectOverview.watchOutFor.map((item) => <li key={item}>• {item}</li>)
+                  )}
+                </ul>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <div className="flex-1 space-y-4 overflow-y-auto py-5 pr-1">
           {chatHistory.length === 0 ? (

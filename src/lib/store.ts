@@ -15,6 +15,7 @@ import type {
   Assignment,
   Database,
   GradingResult,
+  StudentProjectOverview,
   SubmissionChatMessage,
   SubmissionSandboxRun,
   StoredUpload,
@@ -194,6 +195,7 @@ export async function createSubmission(
       rubricBreakdown: [],
       professorFeedback: null,
       errorMessage: null,
+      projectOverview: null,
       chatHistory: [],
       sandboxRuns: [],
       ...input,
@@ -279,6 +281,22 @@ export async function updateSubmissionSandboxRun(
   });
 }
 
+export async function updateSubmissionProjectOverview(
+  submissionId: string,
+  projectOverview: StudentProjectOverview,
+) {
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
+
+    if (!submission) {
+      return null;
+    }
+
+    submission.projectOverview = projectOverview;
+    return submission;
+  });
+}
+
 function parseDatabaseText(raw: string) {
   try {
     return normalizeDatabase(JSON.parse(raw) as Database);
@@ -351,6 +369,7 @@ function normalizeSubmission(submission: Submission): Submission {
     strengths: Array.isArray(submission.strengths) ? submission.strengths : [],
     improvements: Array.isArray(submission.improvements) ? submission.improvements : [],
     rubricBreakdown: Array.isArray(submission.rubricBreakdown) ? submission.rubricBreakdown : [],
+    projectOverview: submission.projectOverview ?? null,
     chatHistory: Array.isArray(submission.chatHistory) ? submission.chatHistory : [],
     sandboxRuns: Array.isArray(submission.sandboxRuns)
       ? submission.sandboxRuns.map((run) => ({

@@ -4,11 +4,13 @@ import { getCurrentUserFromCookieHeader, isLocalAuthEnabled } from "@/lib/auth";
 import { buildRequestUrl } from "@/lib/request-url";
 import { collectSubmissionArtifacts, persistUploadedFiles } from "@/lib/repository-intake";
 import { gradeSubmission } from "@/lib/grading";
+import { generateStudentProjectOverview } from "@/lib/project-overview";
 import {
   createSubmission,
   getAssignmentById,
   updateSubmissionArtifacts,
   updateSubmissionFailure,
+  updateSubmissionProjectOverview,
   updateSubmissionResult,
 } from "@/lib/store";
 
@@ -85,6 +87,22 @@ export async function POST(request: Request) {
     });
 
     await updateSubmissionArtifacts(submission.id, uploads, collected.previewFiles);
+
+    try {
+      const projectOverview = await generateStudentProjectOverview({
+        assignment,
+        submission: {
+          ...submission,
+          files: uploads,
+          analyzedFiles: collected.previewFiles,
+        },
+        artifacts: collected.artifacts,
+        githubRepositoryLabel: collected.githubRepositoryLabel,
+      });
+      await updateSubmissionProjectOverview(submission.id, projectOverview);
+    } catch {
+      // Keep submission processing resilient even if the student overview fails.
+    }
 
     const result = await gradeSubmission({
       assignment,

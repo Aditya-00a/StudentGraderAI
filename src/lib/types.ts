@@ -66,6 +66,13 @@ export type SubmissionSandboxRun = {
   finishedAt: string | null;
 };
 
+export type StudentProjectOverview = {
+  summary: string;
+  detectedStack: string[];
+  whatToDoNext: string[];
+  watchOutFor: string[];
+};
+
 export type Submission = {
   id: string;
   assignmentId: string;
@@ -87,6 +94,7 @@ export type Submission = {
   rubricBreakdown: RubricBreakdownItem[];
   professorFeedback: string | null;
   errorMessage: string | null;
+  projectOverview: StudentProjectOverview | null;
   chatHistory: SubmissionChatMessage[];
   sandboxRuns: SubmissionSandboxRun[];
 };

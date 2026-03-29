@@ -148,6 +148,7 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
           notes={submission.notes}
           githubUrl={submission.githubUrl}
           analyzedFiles={submission.analyzedFiles}
+          projectOverview={submission.projectOverview}
           initialChatHistory={submission.chatHistory}
           initialSandboxRuns={submission.sandboxRuns}
         />
@@ -354,6 +355,7 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
         notes={submission.notes}
         githubUrl={submission.githubUrl}
         analyzedFiles={submission.analyzedFiles}
+        projectOverview={submission.projectOverview}
         initialChatHistory={submission.chatHistory}
         initialSandboxRuns={submission.sandboxRuns}
       />
