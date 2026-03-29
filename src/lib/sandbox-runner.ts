@@ -5,6 +5,8 @@ import { spawn } from "node:child_process";
 import JSZip from "jszip";
 import type { SandboxRuntime } from "@/lib/types";
 
+type NodePackageManager = "npm" | "pnpm" | "yarn";
+
 const runtimeImages: Record<SandboxRuntime, string> = {
   node: "node:22-bookworm-slim",
   python: "python:3.11-slim",
@@ -241,6 +243,16 @@ async function detectRuntime(repoRoot: string): Promise<SandboxRuntime> {
 
 async function detectSetupCommand(repoRoot: string, runtime: SandboxRuntime) {
   if (runtime === "node") {
+    const packageManager = await detectNodePackageManager(repoRoot);
+
+    if (packageManager === "pnpm") {
+      return "corepack enable && pnpm install";
+    }
+
+    if (packageManager === "yarn") {
+      return "corepack enable && yarn install";
+    }
+
     if (await fileExists(path.join(repoRoot, "package-lock.json"))) {
       return "npm ci";
     }
@@ -259,11 +271,13 @@ async function detectRunCommand(repoRoot: string, runtime: SandboxRuntime) {
   if (runtime === "node") {
     const packageJson = await readPackageJson(repoRoot);
     const scripts = packageJson?.scripts ?? {};
+    const packageManager = await detectNodePackageManager(repoRoot);
+    const runner = getNodeRunPrefix(packageManager);
 
-    if (typeof scripts.build === "string") return "npm run build";
-    if (typeof scripts.test === "string") return "npm test";
-    if (typeof scripts.lint === "string") return "npm run lint";
-    if (typeof scripts.start === "string") return "npm start";
+    if (typeof scripts.build === "string") return `${runner} build`;
+    if (typeof scripts.test === "string") return packageManager === "npm" ? "npm test" : `${runner} test`;
+    if (typeof scripts.lint === "string") return `${runner} lint`;
+    if (typeof scripts.start === "string") return packageManager === "npm" ? "npm start" : `${runner} start`;
 
     return null;
   }
@@ -293,10 +307,48 @@ async function readPackageJson(repoRoot: string) {
   try {
     return JSON.parse(await readFile(packageJsonPath, "utf8")) as {
       scripts?: Record<string, string>;
+      packageManager?: string;
     };
   } catch {
     return null;
   }
+}
+
+async function detectNodePackageManager(repoRoot: string): Promise<NodePackageManager> {
+  if (await fileExists(path.join(repoRoot, "pnpm-lock.yaml"))) {
+    return "pnpm";
+  }
+
+  if (await fileExists(path.join(repoRoot, "yarn.lock"))) {
+    return "yarn";
+  }
+
+  const packageJson = await readPackageJson(repoRoot);
+  const declaredManager = packageJson?.packageManager;
+
+  if (typeof declaredManager === "string") {
+    if (declaredManager.startsWith("pnpm@")) {
+      return "pnpm";
+    }
+
+    if (declaredManager.startsWith("yarn@")) {
+      return "yarn";
+    }
+  }
+
+  return "npm";
+}
+
+function getNodeRunPrefix(packageManager: NodePackageManager) {
+  if (packageManager === "pnpm") {
+    return "corepack enable && pnpm";
+  }
+
+  if (packageManager === "yarn") {
+    return "corepack enable && yarn";
+  }
+
+  return "npm run";
 }
 
 async function fileExists(filePath: string) {
