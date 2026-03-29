@@ -7,6 +7,7 @@ import {
   isLocalAuthEnabled,
   isProfessorAccessConfigured,
 } from "@/lib/auth";
+import { SubmissionWorkspace } from "@/components/submission-workspace";
 import { getSubmissionById } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
 
@@ -274,6 +275,13 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
           )}
         </div>
       </section>
+
+      <SubmissionWorkspace
+        submissionId={submission.id}
+        initialChatHistory={submission.chatHistory}
+        initialSandboxRuns={submission.sandboxRuns}
+        githubUrl={submission.githubUrl}
+      />
     </main>
   );
 }

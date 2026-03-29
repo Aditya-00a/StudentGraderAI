@@ -15,6 +15,8 @@ import type {
   Assignment,
   Database,
   GradingResult,
+  SubmissionChatMessage,
+  SubmissionSandboxRun,
   StoredUpload,
   Submission,
 } from "@/lib/types";
@@ -70,7 +72,7 @@ async function readDatabase() {
     return emptyDatabase;
   }
 
-  return JSON.parse(raw) as Database;
+  return normalizeDatabase(JSON.parse(raw) as Database);
 }
 
 async function writeDatabase(database: Database) {
@@ -165,12 +167,107 @@ export async function createSubmission(
     rubricBreakdown: [],
     professorFeedback: null,
     errorMessage: null,
+    chatHistory: [],
+    sandboxRuns: [],
     ...input,
   };
 
   database.submissions.push(submission);
   await writeDatabase(database);
   return submission;
+}
+
+export async function appendSubmissionChatMessage(
+  submissionId: string,
+  message: Omit<SubmissionChatMessage, "id" | "createdAt">,
+) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  const nextMessage: SubmissionChatMessage = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    ...message,
+  };
+
+  submission.chatHistory.push(nextMessage);
+  await writeDatabase(database);
+  return nextMessage;
+}
+
+export async function createSubmissionSandboxRun(
+  submissionId: string,
+  input: Omit<SubmissionSandboxRun, "id" | "startedAt" | "finishedAt" | "status" | "summary" | "logs" | "exitCode">,
+) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  const run: SubmissionSandboxRun = {
+    id: crypto.randomUUID(),
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    status: "running",
+    summary: null,
+    logs: "",
+    exitCode: null,
+    ...input,
+  };
+
+  submission.sandboxRuns.unshift(run);
+  await writeDatabase(database);
+  return run;
+}
+
+export async function updateSubmissionSandboxRun(
+  submissionId: string,
+  runId: string,
+  patch: Partial<SubmissionSandboxRun>,
+) {
+  const database = await readDatabase();
+  const submission = database.submissions.find((item) => item.id === submissionId);
+
+  if (!submission) {
+    return null;
+  }
+
+  const run = submission.sandboxRuns.find((item) => item.id === runId);
+  if (!run) {
+    return null;
+  }
+
+  Object.assign(run, patch);
+  await writeDatabase(database);
+  return run;
+}
+
+function normalizeDatabase(database: Database): Database {
+  return {
+    assignments: Array.isArray(database.assignments) ? database.assignments : [],
+    submissions: Array.isArray(database.submissions)
+      ? database.submissions.map(normalizeSubmission)
+      : [],
+  };
+}
+
+function normalizeSubmission(submission: Submission): Submission {
+  return {
+    ...submission,
+    files: Array.isArray(submission.files) ? submission.files : [],
+    analyzedFiles: Array.isArray(submission.analyzedFiles) ? submission.analyzedFiles : [],
+    strengths: Array.isArray(submission.strengths) ? submission.strengths : [],
+    improvements: Array.isArray(submission.improvements) ? submission.improvements : [],
+    rubricBreakdown: Array.isArray(submission.rubricBreakdown) ? submission.rubricBreakdown : [],
+    chatHistory: Array.isArray(submission.chatHistory) ? submission.chatHistory : [],
+    sandboxRuns: Array.isArray(submission.sandboxRuns) ? submission.sandboxRuns : [],
+  };
 }
 
 export async function updateSubmissionArtifacts(

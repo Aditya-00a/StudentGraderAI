@@ -42,6 +42,29 @@ export type RubricBreakdownItem = {
   feedback: string;
 };
 
+export type SubmissionChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+};
+
+export type SandboxRuntime = "node" | "python";
+export type SandboxRunStatus = "running" | "completed" | "failed";
+
+export type SubmissionSandboxRun = {
+  id: string;
+  runtime: SandboxRuntime;
+  setupCommand: string | null;
+  runCommand: string;
+  status: SandboxRunStatus;
+  summary: string | null;
+  logs: string;
+  exitCode: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
 export type Submission = {
   id: string;
   assignmentId: string;
@@ -63,6 +86,8 @@ export type Submission = {
   rubricBreakdown: RubricBreakdownItem[];
   professorFeedback: string | null;
   errorMessage: string | null;
+  chatHistory: SubmissionChatMessage[];
+  sandboxRuns: SubmissionSandboxRun[];
 };
 
 export type Database = {

@@ -10,6 +10,14 @@ type StructuredGenerationInput = {
   ollamaModel?: string;
 };
 
+type TextGenerationInput = {
+  systemInstruction: string;
+  prompt: string;
+  geminiModel?: string;
+  ollamaModel?: string;
+  temperature?: number;
+};
+
 function getTrimmedEnvValue(...keys: string[]) {
   for (const key of keys) {
     const value = process.env[key]?.trim();
@@ -92,6 +100,96 @@ export async function generateStructuredObject({
       model: ollamaModel || getTrimmedEnvValue("OLLAMA_MODEL"),
       baseUrl: getTrimmedEnvValue("OLLAMA_BASE_URL") || "http://127.0.0.1:11434",
     });
+  }
+
+  throw new Error(
+    "No AI provider is configured. Set AI_PROVIDER=ollama with OLLAMA_MODEL, or configure Gemini with GEMINI_API_KEY.",
+  );
+}
+
+export async function generateTextResponse({
+  systemInstruction,
+  prompt,
+  geminiModel,
+  ollamaModel,
+  temperature = 0.3,
+}: TextGenerationInput) {
+  const provider = getAiProviderName();
+
+  if (provider === "gemini") {
+    const apiKey = getTrimmedEnvValue("GEMINI_API_KEY");
+
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is missing from the server environment.");
+    }
+
+    const client = new GoogleGenAI({ apiKey });
+    const response = await client.models.generateContent({
+      model: geminiModel || getTrimmedEnvValue("GEMINI_MODEL") || "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature,
+      },
+    });
+
+    const text = response.text?.trim();
+    if (!text) {
+      throw new Error("The Gemini assistant returned an empty response.");
+    }
+
+    return text;
+  }
+
+  if (provider === "ollama") {
+    const model = ollamaModel || getTrimmedEnvValue("OLLAMA_MODEL");
+    if (!model) {
+      throw new Error("OLLAMA_MODEL is missing from the server environment.");
+    }
+
+    const baseUrl = getTrimmedEnvValue("OLLAMA_BASE_URL") || "http://127.0.0.1:11434";
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        options: {
+          temperature,
+        },
+        messages: [
+          {
+            role: "system",
+            content: systemInstruction,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Ollama request failed: ${response.status} ${body}`.trim());
+    }
+
+    const payload = (await response.json()) as {
+      message?: {
+        content?: string;
+      };
+    };
+
+    const text = payload.message?.content?.trim();
+    if (!text) {
+      throw new Error("The Ollama assistant returned an empty response.");
+    }
+
+    return text;
   }
 
   throw new Error(
