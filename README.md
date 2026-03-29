@@ -68,7 +68,7 @@ This project is an MVP for exactly that workflow.
    ```bash
    AI_PROVIDER=ollama
    OLLAMA_BASE_URL=http://127.0.0.1:11434
-   OLLAMA_MODEL=qwen2.5-coder:7b
+   OLLAMA_MODEL=gemma3:27b
    GEMINI_API_KEY=
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=optional_for_higher_github_rate_limits
@@ -98,7 +98,7 @@ If port `3000` is already busy, Next.js will usually move to the next free port 
 | `GEMINI_API_KEY` | Required for Gemini | Enables AI grading through Gemini |
 | `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` |
 | `OLLAMA_BASE_URL` | No | Defaults to `http://127.0.0.1:11434` |
-| `OLLAMA_MODEL` | Required for Ollama | Local model name, for example `qwen2.5-coder:7b` |
+| `OLLAMA_MODEL` | Required for Ollama | Local model name, for example `gemma3:27b` |
 | `GITHUB_TOKEN` | No | Helps avoid GitHub API rate limits |
 | `PERSISTENCE_ROOT` | No | Root directory for stored app data in production |
 | `PROFESSOR_ACCESS_KEY` | Recommended | Protects the professor dashboard and grading results |
@@ -122,7 +122,7 @@ If you deploy on Vercel, connect either Supabase Storage or Vercel Blob. Without
    ```bash
    AI_PROVIDER=ollama
    OLLAMA_BASE_URL=http://127.0.0.1:11434
-   OLLAMA_MODEL=qwen2.5-coder:7b
+   OLLAMA_MODEL=gemma3:27b
    GEMINI_API_KEY=
    GEMINI_MODEL=gemini-2.5-flash
    GITHUB_TOKEN=
@@ -205,7 +205,7 @@ storage/     # generated locally
 
 ## Model choice
 
-This project supports either `gemini-2.5-flash` or a local Ollama model. For a self-hosted university machine, Ollama is the best fit because the app already downloads GitHub repositories and uploaded files itself before sending compact evidence to the model.
+This project supports either `gemini-2.5-flash` or a local Ollama model. For a self-hosted university machine, Ollama is the best fit because the app already downloads GitHub repositories and uploaded files itself before sending compact evidence to the model. The default local recommendation in this repo is now `gemma3:27b`.
 
 Official docs:
 

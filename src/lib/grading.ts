@@ -61,7 +61,7 @@ export async function gradeSubmission({
 
   const raw = await generateStructuredObject({
     geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    ollamaModel: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b",
+    ollamaModel: process.env.OLLAMA_MODEL || "gemma3:27b",
     systemInstruction:
       "You are a fair but demanding professor assistant. Grade only from the provided evidence. Never invent features that are not present. If the repository is incomplete, say that clearly and score conservatively. Feedback should be specific, constructive, and written in plain language a student can act on.",
     prompt: [

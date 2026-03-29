@@ -23,7 +23,7 @@ export async function generateRubricSuggestion(input: {
   try {
     const raw = await generateStructuredObject({
       geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-      ollamaModel: process.env.OLLAMA_MODEL || "qwen2.5-coder:7b",
+      ollamaModel: process.env.OLLAMA_MODEL || "gemma3:27b",
       prompt: [
         `Assignment title: ${input.title}`,
         `Course or module: ${input.courseCode}`,
