@@ -45,6 +45,16 @@ export function StudentSubmissionForm({
       <input type="hidden" name="studentName" value={studentName} />
       <input type="hidden" name="studentEmail" value={studentEmail} />
       <label className="space-y-2 text-sm font-medium text-slate-700">
+        Project name
+        <input
+          className="field"
+          name="projectName"
+          type="text"
+          placeholder="Credit Risk Model"
+          required
+        />
+      </label>
+      <label className="space-y-2 text-sm font-medium text-slate-700">
         Public GitHub repository
         <input
           className="field"

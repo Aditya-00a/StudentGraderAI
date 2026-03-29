@@ -63,6 +63,28 @@ export default async function ActivatePage({ searchParams }: ActivatePageProps) 
                 required
               />
             </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-slate-700">
+                First name
+                <input
+                  className="field"
+                  name="firstName"
+                  type="text"
+                  placeholder="First name"
+                  required
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-slate-700">
+                Last name
+                <input
+                  className="field"
+                  name="lastName"
+                  type="text"
+                  placeholder="Last name"
+                  required
+                />
+              </label>
+            </div>
             <label className="space-y-2 text-sm font-medium text-slate-700">
               New password
               <input

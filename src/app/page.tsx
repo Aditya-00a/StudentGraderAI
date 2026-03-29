@@ -13,7 +13,7 @@ import { hasBlobStorageConfigured } from "@/lib/blob-storage";
 import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
 import type { Assignment, Submission } from "@/lib/types";
-import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
+import { formatDate, formatScore, getStatusAppearance, getSubmissionDisplayTitle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -267,9 +267,11 @@ export default async function Home({ searchParams }: HomePageProps) {
                           <span className="status-dot" style={{ backgroundColor: appearance.dot }} />
                           {appearance.label}
                         </span>
-                        <span className="pill">{submission.assignmentTitle}</span>
+                        <span className="pill">{submission.projectName}</span>
                       </div>
-                      <h3 className="text-lg font-semibold text-slate-900">{submission.studentName}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {getSubmissionDisplayTitle(submission)}
+                      </h3>
                       <p className="text-sm text-slate-500">{submission.studentEmail}</p>
                     </div>
 

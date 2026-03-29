@@ -8,7 +8,7 @@ import {
   isLocalAuthEnabled,
   shouldUseSecureCookies,
 } from "@/lib/auth";
-import { getUserByEmail, updateUserPasswordByEmail } from "@/lib/local-auth-db";
+import { getUserByEmail, updateUserActivationByEmail } from "@/lib/local-auth-db";
 import { buildRequestUrl } from "@/lib/request-url";
 
 export const runtime = "nodejs";
@@ -16,6 +16,8 @@ export const runtime = "nodejs";
 const createPasswordSchema = z
   .object({
     email: z.string().email().trim().max(160),
+    firstName: z.string().trim().min(2, "Enter your first name.").max(80),
+    lastName: z.string().trim().min(2, "Enter your last name.").max(80),
     password: z
       .string()
       .min(10, "Use at least 10 characters.")
@@ -47,6 +49,8 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const parsed = createPasswordSchema.safeParse({
     email: String(formData.get("email") ?? ""),
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
     password: String(formData.get("password") ?? ""),
     confirmPassword: String(formData.get("confirmPassword") ?? ""),
   });
@@ -73,7 +77,12 @@ export async function POST(request: Request) {
     return NextResponse.redirect(url, 303);
   }
 
-  updateUserPasswordByEmail(parsed.data.email, hashPassword(parsed.data.password), false);
+  updateUserActivationByEmail({
+    email: parsed.data.email,
+    passwordHash: hashPassword(parsed.data.password),
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+  });
   const session = createAppSession(user.id);
   const response = NextResponse.redirect(
     buildRequestUrl(request, user.role === "student" ? "/submit" : "/"),

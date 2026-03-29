@@ -173,6 +173,7 @@ export async function createSubmission(
     Submission,
     | "assignmentId"
     | "assignmentTitle"
+    | "projectName"
     | "ownerUserId"
     | "ownerRole"
     | "studentName"
@@ -364,6 +365,7 @@ function normalizeDatabase(database: Database): Database {
 function normalizeSubmission(submission: Submission): Submission {
   return {
     ...submission,
+    projectName: submission.projectName ?? "Project",
     files: Array.isArray(submission.files) ? submission.files : [],
     analyzedFiles: Array.isArray(submission.analyzedFiles) ? submission.analyzedFiles : [],
     strengths: Array.isArray(submission.strengths) ? submission.strengths : [],

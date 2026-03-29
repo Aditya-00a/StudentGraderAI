@@ -13,6 +13,7 @@ type SubmissionWorkspaceProps = {
   submissionId: string;
   assignmentTitle: string;
   studentName: string;
+  projectName: string;
   createdAt: string;
   notes: string | null;
   githubUrl: string | null;
@@ -26,6 +27,7 @@ export function SubmissionWorkspace({
   submissionId,
   assignmentTitle,
   studentName,
+  projectName,
   createdAt,
   notes,
   githubUrl,
@@ -151,6 +153,7 @@ export function SubmissionWorkspace({
         <section className="glass-panel rounded-[1.75rem] p-5 sm:p-6">
           <span className="pill">Project</span>
           <h2 className="mt-4 text-2xl font-semibold text-slate-900">{assignmentTitle}</h2>
+          <p className="mt-2 text-sm font-medium text-slate-500">{projectName}</p>
           <p className="mt-3 text-sm leading-7 text-slate-600">
             This workspace is for testing and improving your project with Gemma. Grades stay visible
             only to faculty and admins.

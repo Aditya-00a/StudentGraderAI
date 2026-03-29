@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth";
 import { SubmissionWorkspace } from "@/components/submission-workspace";
 import { getSubmissionById } from "@/lib/store";
-import { formatDate, formatScore, getStatusAppearance } from "@/lib/utils";
+import { formatDate, formatScore, getStatusAppearance, getSubmissionDisplayTitle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -97,12 +97,12 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
                   <span className="status-dot" style={{ backgroundColor: appearance.dot }} />
                   {appearance.label}
                 </span>
-                <span className="pill">{submission.assignmentTitle}</span>
+                <span className="pill">{submission.projectName}</span>
                 <span className="pill">{formatDate(submission.createdAt)}</span>
               </div>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                  Project workspace
+                  {getSubmissionDisplayTitle(submission)}
                 </h1>
                 <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
                   Chat with Gemma about your project, inspect sandbox run logs from the DGX, and
@@ -144,6 +144,7 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
           submissionId={submission.id}
           assignmentTitle={submission.assignmentTitle}
           studentName={submission.studentName}
+          projectName={submission.projectName}
           createdAt={submission.createdAt}
           notes={submission.notes}
           githubUrl={submission.githubUrl}
@@ -166,12 +167,12 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
                 <span className="status-dot" style={{ backgroundColor: appearance.dot }} />
                 {appearance.label}
               </span>
-              <span className="pill">{submission.assignmentTitle}</span>
+              <span className="pill">{submission.projectName}</span>
               <span className="pill">{formatDate(submission.createdAt)}</span>
             </div>
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                {submission.studentName}
+                {getSubmissionDisplayTitle(submission)}
               </h1>
               <p className="mt-2 text-sm text-slate-500">{submission.studentEmail}</p>
             </div>
@@ -351,6 +352,7 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
         submissionId={submission.id}
         assignmentTitle={submission.assignmentTitle}
         studentName={submission.studentName}
+        projectName={submission.projectName}
         createdAt={submission.createdAt}
         notes={submission.notes}
         githubUrl={submission.githubUrl}

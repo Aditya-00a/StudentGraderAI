@@ -133,6 +133,27 @@ export function updateUserPasswordByEmail(
     .run(passwordHash, mustChangePassword ? 1 : 0, normalized);
 }
 
+export function updateUserActivationByEmail({
+  email,
+  passwordHash,
+  firstName,
+  lastName,
+}: {
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+}) {
+  const normalized = email.trim().toLowerCase();
+  return getDatabase()
+    .prepare(
+      `UPDATE users
+       SET password_hash = ?, must_change_password = 0, first_name = ?, last_name = ?
+       WHERE lower(email) = ? AND active = 1`,
+    )
+    .run(passwordHash, firstName.trim(), lastName.trim(), normalized);
+}
+
 export function insertSession(token: string, userId: string, expiresAt: string) {
   getDatabase()
     .prepare(

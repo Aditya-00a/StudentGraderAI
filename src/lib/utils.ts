@@ -1,4 +1,4 @@
-import type { SubmissionStatus } from "@/lib/types";
+import type { Submission, SubmissionStatus } from "@/lib/types";
 
 export function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -28,4 +28,8 @@ export function slugifySegment(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
+}
+
+export function getSubmissionDisplayTitle(submission: Pick<Submission, "assignmentTitle" | "studentName" | "projectName">) {
+  return `${submission.assignmentTitle} - ${submission.studentName} - ${submission.projectName || "Project"}`;
 }

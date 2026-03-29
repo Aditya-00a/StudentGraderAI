@@ -20,6 +20,7 @@ const submissionSchema = z.object({
   assignmentId: z.string().trim().min(1),
   studentName: z.string().trim().min(2).max(120),
   studentEmail: z.string().trim().email().max(160),
+  projectName: z.string().trim().min(2).max(160),
   githubUrl: z
     .string()
     .trim()
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
     assignmentId: formData.get("assignmentId"),
     studentName: formData.get("studentName"),
     studentEmail: formData.get("studentEmail"),
+    projectName: formData.get("projectName"),
     githubUrl: formData.get("githubUrl"),
     notes: formData.get("notes"),
   });
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
     const submission = await createSubmission({
       assignmentId: assignment.id,
       assignmentTitle: assignment.title,
+      projectName: parsed.data.projectName,
       ownerUserId: currentUser?.id ?? null,
       ownerRole: currentUser?.role ?? null,
       studentName: parsed.data.studentName,

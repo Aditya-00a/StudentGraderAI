@@ -77,6 +77,7 @@ export type Submission = {
   id: string;
   assignmentId: string;
   assignmentTitle: string;
+  projectName: string;
   ownerUserId?: string | null;
   ownerRole?: AppRole | null;
   studentName: string;

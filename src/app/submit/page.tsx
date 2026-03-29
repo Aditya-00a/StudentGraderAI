@@ -4,6 +4,7 @@ import { getCurrentUserFromCookies, isLocalAuthEnabled } from "@/lib/auth";
 import { StudentSubmissionForm } from "@/components/student-submission-form";
 import { listAssignments, listSubmissionsByStudentEmail } from "@/lib/store";
 import type { Assignment, Submission } from "@/lib/types";
+import { getSubmissionDisplayTitle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -144,7 +145,7 @@ export default async function StudentSubmitPage({ searchParams }: StudentSubmitP
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="pill">{submission.assignmentTitle}</span>
+                      <span className="pill">{getSubmissionDisplayTitle(submission)}</span>
                       <span className="pill">{submission.status}</span>
                     </div>
                     <p className="mt-3 text-sm leading-7 text-slate-600">
