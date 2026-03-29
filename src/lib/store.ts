@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import crypto from "node:crypto";
 import {
   hasBlobStorageConfigured,
@@ -24,11 +24,14 @@ import { dataDirectory } from "@/lib/paths";
 
 const databasePath = `${dataDirectory}/student-grader-ai.json`;
 const databaseBlobPath = "app-data/student-grader-ai.json";
+const databaseTempPath = `${databasePath}.tmp`;
 
 const emptyDatabase: Database = {
   assignments: [],
   submissions: [],
 };
+
+let mutationQueue: Promise<void> = Promise.resolve();
 
 async function ensureDatabase() {
   if (hasSupabaseStorageConfigured()) {
@@ -61,6 +64,11 @@ async function ensureDatabase() {
 }
 
 async function readDatabase() {
+  await mutationQueue;
+  return readDatabaseFile();
+}
+
+async function readDatabaseFile() {
   await ensureDatabase();
   const raw = hasSupabaseStorageConfigured()
     ? await readSupabaseText(databaseBlobPath)
@@ -72,7 +80,7 @@ async function readDatabase() {
     return emptyDatabase;
   }
 
-  return normalizeDatabase(JSON.parse(raw) as Database);
+  return parseDatabaseText(raw);
 }
 
 async function writeDatabase(database: Database) {
@@ -92,7 +100,26 @@ async function writeDatabase(database: Database) {
     return;
   }
 
-  await writeFile(databasePath, JSON.stringify(database, null, 2), "utf8");
+  await writeFile(databaseTempPath, JSON.stringify(database, null, 2), "utf8");
+  await rename(databaseTempPath, databasePath);
+}
+
+async function mutateDatabase<T>(mutator: (database: Database) => Promise<T> | T) {
+  const runMutation = async () => {
+    const database = await readDatabaseFile();
+    const outcome = await mutator(database);
+    await writeDatabase(database);
+    return outcome;
+  };
+
+  const result = mutationQueue.then(runMutation, runMutation);
+
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return result;
 }
 
 export async function listAssignments() {
@@ -128,16 +155,16 @@ export async function getSubmissionById(id: string) {
 }
 
 export async function createAssignment(input: Omit<Assignment, "id" | "createdAt">) {
-  const database = await readDatabase();
-  const assignment: Assignment = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    ...input,
-  };
+  return mutateDatabase(async (database) => {
+    const assignment: Assignment = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      ...input,
+    };
 
-  database.assignments.push(assignment);
-  await writeDatabase(database);
-  return assignment;
+    database.assignments.push(assignment);
+    return assignment;
+  });
 }
 
 export async function createSubmission(
@@ -153,77 +180,77 @@ export async function createSubmission(
     | "notes"
   >,
 ) {
-  const database = await readDatabase();
-  const submission: Submission = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    status: "processing",
-    files: [],
-    analyzedFiles: [],
-    score: null,
-    gradingSummary: null,
-    strengths: [],
-    improvements: [],
-    rubricBreakdown: [],
-    professorFeedback: null,
-    errorMessage: null,
-    chatHistory: [],
-    sandboxRuns: [],
-    ...input,
-  };
+  return mutateDatabase(async (database) => {
+    const submission: Submission = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      status: "processing",
+      files: [],
+      analyzedFiles: [],
+      score: null,
+      gradingSummary: null,
+      strengths: [],
+      improvements: [],
+      rubricBreakdown: [],
+      professorFeedback: null,
+      errorMessage: null,
+      chatHistory: [],
+      sandboxRuns: [],
+      ...input,
+    };
 
-  database.submissions.push(submission);
-  await writeDatabase(database);
-  return submission;
+    database.submissions.push(submission);
+    return submission;
+  });
 }
 
 export async function appendSubmissionChatMessage(
   submissionId: string,
   message: Omit<SubmissionChatMessage, "id" | "createdAt">,
 ) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
-  }
+    if (!submission) {
+      return null;
+    }
 
-  const nextMessage: SubmissionChatMessage = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    ...message,
-  };
+    const nextMessage: SubmissionChatMessage = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      ...message,
+    };
 
-  submission.chatHistory.push(nextMessage);
-  await writeDatabase(database);
-  return nextMessage;
+    submission.chatHistory.push(nextMessage);
+    return nextMessage;
+  });
 }
 
 export async function createSubmissionSandboxRun(
   submissionId: string,
   input: Omit<SubmissionSandboxRun, "id" | "startedAt" | "finishedAt" | "status" | "summary" | "logs" | "exitCode">,
 ) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
-  }
+    if (!submission) {
+      return null;
+    }
 
-  const run: SubmissionSandboxRun = {
-    id: crypto.randomUUID(),
-    startedAt: new Date().toISOString(),
-    finishedAt: null,
-    status: "running",
-    summary: null,
-    logs: "",
-    exitCode: null,
-    ...input,
-  };
+    const run: SubmissionSandboxRun = {
+      id: crypto.randomUUID(),
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      status: "running",
+      summary: null,
+      logs: "",
+      exitCode: null,
+      ...input,
+    };
 
-  submission.sandboxRuns.unshift(run);
-  await writeDatabase(database);
-  return run;
+    submission.sandboxRuns.unshift(run);
+    return run;
+  });
 }
 
 export async function updateSubmissionSandboxRun(
@@ -231,21 +258,76 @@ export async function updateSubmissionSandboxRun(
   runId: string,
   patch: Partial<SubmissionSandboxRun>,
 ) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
+    if (!submission) {
+      return null;
+    }
+
+    const run = submission.sandboxRuns.find((item) => item.id === runId);
+    if (!run) {
+      return null;
+    }
+
+    Object.assign(run, patch);
+    return run;
+  });
+}
+
+function parseDatabaseText(raw: string) {
+  try {
+    return normalizeDatabase(JSON.parse(raw) as Database);
+  } catch {
+    const recovered = recoverFirstJsonObject(raw);
+    return normalizeDatabase(JSON.parse(recovered) as Database);
+  }
+}
+
+function recoverFirstJsonObject(raw: string) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let started = false;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+
+    if (!started) {
+      if (character === "{") {
+        started = true;
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return raw.slice(raw.indexOf("{"), index + 1);
+      }
+    }
   }
 
-  const run = submission.sandboxRuns.find((item) => item.id === runId);
-  if (!run) {
-    return null;
-  }
-
-  Object.assign(run, patch);
-  await writeDatabase(database);
-  return run;
+  throw new Error("The submission database could not be parsed.");
 }
 
 function normalizeDatabase(database: Database): Database {
@@ -275,50 +357,50 @@ export async function updateSubmissionArtifacts(
   files: StoredUpload[],
   analyzedFiles: ArtifactPreview[],
 ) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
-  }
+    if (!submission) {
+      return null;
+    }
 
-  submission.files = files;
-  submission.analyzedFiles = analyzedFiles;
-  await writeDatabase(database);
-  return submission;
+    submission.files = files;
+    submission.analyzedFiles = analyzedFiles;
+    return submission;
+  });
 }
 
 export async function updateSubmissionResult(submissionId: string, result: GradingResult) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
-  }
+    if (!submission) {
+      return null;
+    }
 
-  submission.status = "graded";
-  submission.score = result.score;
-  submission.gradingSummary = result.gradingSummary;
-  submission.strengths = result.strengths;
-  submission.improvements = result.improvements;
-  submission.rubricBreakdown = result.rubricBreakdown;
-  submission.professorFeedback = result.professorFeedback;
-  submission.errorMessage = null;
+    submission.status = "graded";
+    submission.score = result.score;
+    submission.gradingSummary = result.gradingSummary;
+    submission.strengths = result.strengths;
+    submission.improvements = result.improvements;
+    submission.rubricBreakdown = result.rubricBreakdown;
+    submission.professorFeedback = result.professorFeedback;
+    submission.errorMessage = null;
 
-  await writeDatabase(database);
-  return submission;
+    return submission;
+  });
 }
 
 export async function updateSubmissionFailure(submissionId: string, errorMessage: string) {
-  const database = await readDatabase();
-  const submission = database.submissions.find((item) => item.id === submissionId);
+  return mutateDatabase(async (database) => {
+    const submission = database.submissions.find((item) => item.id === submissionId);
 
-  if (!submission) {
-    return null;
-  }
+    if (!submission) {
+      return null;
+    }
 
-  submission.status = "failed";
-  submission.errorMessage = errorMessage;
-  await writeDatabase(database);
-  return submission;
+    submission.status = "failed";
+    submission.errorMessage = errorMessage;
+    return submission;
+  });
 }
