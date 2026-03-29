@@ -15,9 +15,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudentGraderAI",
+  title: "NYU SPS SANDBOX",
   description:
-    "An AI-assisted grading workspace for professors to collect submissions, review GitHub projects, and score work on a custom rubric.",
+    "An invite-only NYU SPS sandbox for students to upload, test, and discuss AI projects with faculty oversight.",
 };
 
 export default async function RootLayout({

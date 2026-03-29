@@ -75,7 +75,7 @@ async function downloadGithubRepository(
 ) {
   const headers = new Headers({
     Accept: "application/vnd.github+json",
-    "User-Agent": "StudentGraderAI",
+    "User-Agent": "NYU-SPS-SANDBOX",
   });
 
   if (process.env.GITHUB_TOKEN) {

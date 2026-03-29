@@ -34,7 +34,7 @@ export async function AppHeader() {
     <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link className="flex items-center gap-3 text-slate-900" href={signedIn ? primaryHref : "/"}>
-          <span className="pill">StudentGraderAI</span>
+          <span className="pill">NYU SPS SANDBOX</span>
           <span className="hidden text-sm text-slate-600 sm:inline">
             Invite-only NYU sandbox
           </span>
