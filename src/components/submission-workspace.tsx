@@ -194,14 +194,16 @@ export function SubmissionWorkspace({
           <span className="pill">Run on DGX</span>
           <h2 className="mt-4 text-xl font-semibold text-slate-900">Sandbox test</h2>
           <p className="mt-3 text-sm leading-7 text-slate-600">
-            Use the quick check if you want the system to try common project commands automatically.
-            Only open advanced commands if your project needs something custom.
+            Use the quick check if you want the system to inspect the repo automatically. If it
+            finds a Dockerfile or DGX-style container setup, it will try that path before falling
+            back to common Node or Python commands.
           </p>
 
           <form className="mt-5 grid gap-4" onSubmit={handleRunSandbox}>
             <div className="rounded-[1rem] border border-slate-200/80 bg-white/78 px-4 py-4 text-sm leading-7 text-slate-700">
-              Quick check will inspect the repository, choose a likely runtime, install dependencies,
-              and try a common build, test, or run command for the project.
+              Quick check will inspect the repository, choose a likely runtime, install
+              dependencies, and try a common build, test, or run command. For containerized AI
+              projects, it can also try the repository Dockerfile directly.
             </div>
 
             {!githubUrl ? (
@@ -233,6 +235,7 @@ export function SubmissionWorkspace({
                   >
                     <option value="node">Node.js</option>
                     <option value="python">Python</option>
+                    <option value="docker">Docker / container project</option>
                   </select>
                 </label>
                 <label className="space-y-2 text-sm font-medium text-slate-700">
@@ -242,7 +245,11 @@ export function SubmissionWorkspace({
                     value={setupCommand}
                     onChange={(event) => setSetupCommand(event.target.value)}
                     placeholder={
-                      runtime === "python" ? "pip install -r requirements.txt" : "npm install"
+                      runtime === "python"
+                        ? "pip install -r requirements.txt"
+                        : runtime === "docker"
+                          ? "Leave blank to use the repository Dockerfile"
+                          : "npm install"
                     }
                   />
                 </label>
@@ -252,7 +259,13 @@ export function SubmissionWorkspace({
                     className="field"
                     value={runCommand}
                     onChange={(event) => setRunCommand(event.target.value)}
-                    placeholder={runtime === "python" ? "python app.py" : "npm run build"}
+                    placeholder={
+                      runtime === "python"
+                        ? "python app.py"
+                        : runtime === "docker"
+                          ? "Leave blank to use the container default command"
+                          : "npm run build"
+                    }
                   />
                 </label>
                 <button

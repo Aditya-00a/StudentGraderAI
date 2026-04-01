@@ -49,7 +49,7 @@ export type SubmissionChatMessage = {
   createdAt: string;
 };
 
-export type SandboxRuntime = "node" | "python";
+export type SandboxRuntime = "node" | "python" | "docker";
 export type SandboxRunStatus = "running" | "completed" | "failed";
 
 export type SubmissionSandboxRun = {

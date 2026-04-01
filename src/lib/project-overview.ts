@@ -104,6 +104,22 @@ function buildFallbackOverview(artifacts: CollectedArtifact[]): StudentProjectOv
     detectedStack.push("Python project");
   }
 
+  if (paths.some((path) => path.endsWith("dockerfile"))) {
+    detectedStack.push("Docker deployment");
+  }
+
+  if (
+    paths.some(
+      (path) =>
+        path.endsWith("docker-compose.yml") ||
+        path.endsWith("docker-compose.yaml") ||
+        path.endsWith("compose.yml") ||
+        path.endsWith("compose.yaml"),
+    )
+  ) {
+    detectedStack.push("Multi-container setup");
+  }
+
   if (paths.some((path) => path.endsWith("readme.md") || path.endsWith("readme"))) {
     detectedStack.push("README documentation");
   } else {
@@ -117,6 +133,10 @@ function buildFallbackOverview(artifacts: CollectedArtifact[]): StudentProjectOv
   whatToDoNext.push("Run the DGX quick check to see whether the repository installs and starts cleanly.");
   whatToDoNext.push("Use the Gemma chat to ask what file is missing, how to improve setup, or what may break.");
 
+  if (paths.some((path) => path.endsWith("dockerfile"))) {
+    whatToDoNext.push("Because a Dockerfile was detected, the DGX quick check can try the repository container path directly.");
+  }
+
   if (!paths.some((path) => path.endsWith("package.json") || path.endsWith("requirements.txt") || path.endsWith("pyproject.toml"))) {
     watchOutFor.push("No obvious dependency file was detected, so the runner may need manual setup commands.");
   }
@@ -125,9 +145,18 @@ function buildFallbackOverview(artifacts: CollectedArtifact[]): StudentProjectOv
     watchOutFor.push("The repository does not show obvious test files, so validation may be limited.");
   }
 
+  if (
+    paths.some((path) => path.endsWith("requirements.txt") || path.endsWith("pyproject.toml")) &&
+    artifacts.some((artifact) => /torch|transformers/i.test(artifact.content))
+  ) {
+    watchOutFor.push("Large AI dependencies were detected, so the automated quick check may be slower or may hit sandbox runtime limits.");
+  }
+
   return {
     summary:
-      "This project workspace is ready for review. The app detected the main files it can analyze and can now help you inspect the repository, run a DGX quick check, and identify missing setup steps.",
+      paths.some((path) => path.endsWith("dockerfile") || path.endsWith("docker-compose.yml") || path.endsWith("docker-compose.yaml") || path.endsWith("compose.yml") || path.endsWith("compose.yaml"))
+        ? "This project workspace looks ready for DGX-style review. The app detected deployment files it can use to inspect the repository, try a DGX quick check, and identify missing setup steps."
+        : "This project workspace is ready for review. The app detected the main files it can analyze and can now help you inspect the repository, run a DGX quick check, and identify missing setup steps.",
     detectedStack: detectedStack.slice(0, 5),
     whatToDoNext: whatToDoNext.slice(0, 4),
     watchOutFor: watchOutFor.slice(0, 4),

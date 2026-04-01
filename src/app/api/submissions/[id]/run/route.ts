@@ -12,7 +12,7 @@ import {
 export const runtime = "nodejs";
 
 const runSchema = z.object({
-  runtime: z.enum(["node", "python"]).optional(),
+  runtime: z.enum(["node", "python", "docker"]).optional(),
   setupCommand: z.string().trim().max(500).optional().default(""),
   runCommand: z.string().trim().max(500).optional().default(""),
 });
@@ -91,6 +91,8 @@ export async function POST(
             setupCommand: result.setupCommand,
             runCommand: result.runCommand,
             logs: result.logs,
+            architectureEvidence: result.architectureEvidence,
+            heavyDependencyWarning: result.heavyDependencyWarning,
           });
 
     const updated = await updateSubmissionSandboxRun(id, run.id, {
