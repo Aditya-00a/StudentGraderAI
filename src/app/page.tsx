@@ -60,14 +60,15 @@ export default async function Home({ searchParams }: HomePageProps) {
 
   const params = await searchParams;
   const isAdmin = currentUser?.role === "admin";
-  const currentTab = isAdmin && params.tab === "users" ? "users" : "overview";
+  const canManageUsers = currentUser?.role === "admin" || currentUser?.role === "faculty";
+  const currentTab = canManageUsers && params.tab === "users" ? "users" : "overview";
   const currentUserId = currentUser?.id ?? "";
 
   try {
     [assignments, submissions, invitedUsers] = await Promise.all([
       listAssignments(),
       listSubmissions(),
-      isAdmin ? listUsers() : Promise.resolve([]),
+      canManageUsers ? listUsers() : Promise.resolve([]),
     ]);
   } catch (loadError) {
     storageError =
@@ -123,7 +124,7 @@ export default async function Home({ searchParams }: HomePageProps) {
         </div>
       </section>
 
-      {isAdmin ? (
+      {canManageUsers ? (
         <section className="flex flex-wrap gap-3">
           <Link
             className={currentTab === "overview" ? "button-primary" : "button-secondary"}
@@ -195,10 +196,13 @@ export default async function Home({ searchParams }: HomePageProps) {
         </section>
       ) : null}
 
-      {currentTab === "users" && isAdmin ? (
+      {currentTab === "users" && canManageUsers ? (
         <UserManagementPanel
-          initialUsers={invitedUsers}
+          initialUsers={
+            isAdmin ? invitedUsers : invitedUsers.filter((user) => user.role !== "admin")
+          }
           currentUserId={currentUserId}
+          currentUserRole={currentUser?.role ?? "faculty"}
         />
       ) : (
         <>

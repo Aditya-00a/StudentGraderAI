@@ -6,13 +6,13 @@ import type { AppRole, AppUser } from "@/lib/types";
 type UserManagementPanelProps = {
   initialUsers: AppUser[];
   currentUserId: string;
+  currentUserRole: AppRole;
 };
-
-const roleOptions: AppRole[] = ["student", "faculty", "admin"];
 
 export function UserManagementPanel({
   initialUsers,
   currentUserId,
+  currentUserRole,
 }: UserManagementPanelProps) {
   const [users, setUsers] = useState(sortUsers(initialUsers));
   const [email, setEmail] = useState("");
@@ -23,6 +23,8 @@ export function UserManagementPanel({
   const [error, setError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const roleOptions: AppRole[] =
+    currentUserRole === "admin" ? ["student", "faculty", "admin"] : ["student", "faculty"];
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,11 +115,11 @@ export function UserManagementPanel({
     <section className="grid gap-6 xl:grid-cols-[23rem_minmax(0,1fr)]">
       <section className="glass-panel rounded-[1.75rem] p-6 sm:p-7">
         <div className="space-y-2">
-          <span className="pill">Admin only</span>
+          <span className="pill">{currentUserRole === "admin" ? "Admin controls" : "Faculty controls"}</span>
           <h2 className="text-2xl font-semibold text-slate-900">Invite or update a user</h2>
           <p className="text-sm leading-7 text-slate-600">
-            Add new students, faculty, or admins by email. Saved users can create their own
-            password through the activation page.
+            Add new invited users by email. Saved users can create their own password through the
+            activation page.
           </p>
         </div>
 
@@ -172,6 +174,12 @@ export function UserManagementPanel({
               ))}
             </select>
           </label>
+
+          {currentUserRole !== "admin" ? (
+            <div className="rounded-[1rem] border border-slate-200/80 bg-white/75 px-4 py-3 text-sm leading-7 text-slate-600">
+              Faculty can manage student and faculty accounts. Admin accounts remain admin-only.
+            </div>
+          ) : null}
 
           <button className="button-primary" type="submit" disabled={isSaving}>
             {isSaving ? "Saving user..." : "Save user access"}

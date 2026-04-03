@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   const currentUser = getCurrentUserFromCookieHeader(request.headers.get("cookie"));
-  if (!currentUser || !userHasRole(currentUser.role, ["admin"])) {
+  if (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"])) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

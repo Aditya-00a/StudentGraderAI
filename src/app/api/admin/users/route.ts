@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import {
   inviteOrUpdateUser,
+  getUserById,
   listUsers,
   resetUserActivationById,
   updateUserActiveState,
@@ -28,13 +29,13 @@ const patchUserSchema = z.object({
   action: z.enum(["activate", "deactivate", "reset-activation"]),
 });
 
-function requireAdmin(request: Request) {
+function requireUserManager(request: Request) {
   if (!isLocalAuthEnabled()) {
     return null;
   }
 
   const currentUser = getCurrentUserFromCookieHeader(request.headers.get("cookie"));
-  if (!currentUser || !userHasRole(currentUser.role, ["admin"])) {
+  if (!currentUser || !userHasRole(currentUser.role, ["faculty", "admin"])) {
     return null;
   }
 
@@ -42,16 +43,20 @@ function requireAdmin(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const currentUser = requireAdmin(request);
+  const currentUser = requireUserManager(request);
   if (!currentUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({ users: listUsers() });
+  const users = listUsers().filter((user) =>
+    currentUser.role === "admin" ? true : user.role !== "admin",
+  );
+
+  return NextResponse.json({ users });
 }
 
 export async function POST(request: Request) {
-  const currentUser = requireAdmin(request);
+  const currentUser = requireUserManager(request);
   if (!currentUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -63,6 +68,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid-request" }, { status: 400 });
   }
 
+  if (currentUser.role !== "admin" && parsed.data.role === "admin") {
+    return NextResponse.json(
+      { error: "Only admins can create admin accounts." },
+      { status: 403 },
+    );
+  }
+
   const user = inviteOrUpdateUser({
     ...parsed.data,
     passwordHash: hashPassword(`activate-${crypto.randomUUID()}`),
@@ -72,7 +84,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const currentUser = requireAdmin(request);
+  const currentUser = requireUserManager(request);
   if (!currentUser) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -82,6 +94,18 @@ export async function PATCH(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid-request" }, { status: 400 });
+  }
+
+  const targetUser = getUserById(parsed.data.userId);
+  if (!targetUser) {
+    return NextResponse.json({ error: "not-found" }, { status: 404 });
+  }
+
+  if (currentUser.role !== "admin" && targetUser.role === "admin") {
+    return NextResponse.json(
+      { error: "Only admins can manage admin accounts." },
+      { status: 403 },
+    );
   }
 
   if (parsed.data.userId === currentUser.id && parsed.data.action === "deactivate") {
