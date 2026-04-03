@@ -1,5 +1,6 @@
 import "server-only";
 
+import crypto from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -89,6 +90,26 @@ export function hasLocalUsers() {
   return row.count > 0;
 }
 
+export function listUsers() {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT id, username, email, first_name, last_name, role, must_change_password, active, created_at
+       FROM users
+       ORDER BY
+         CASE role
+           WHEN 'admin' THEN 0
+           WHEN 'faculty' THEN 1
+           ELSE 2
+         END,
+         lower(last_name),
+         lower(first_name),
+         lower(email)`,
+    )
+    .all() as UserRow[];
+
+  return rows.map((row) => mapUserRow(row)).filter(Boolean) as AppUser[];
+}
+
 export function getUserByEmail(email: string) {
   const normalized = email.trim().toLowerCase();
   const row = getDatabase()
@@ -152,6 +173,73 @@ export function updateUserActivationByEmail({
        WHERE lower(email) = ? AND active = 1`,
     )
     .run(passwordHash, firstName.trim(), lastName.trim(), normalized);
+}
+
+export function inviteOrUpdateUser({
+  email,
+  firstName,
+  lastName,
+  role,
+  passwordHash,
+}: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: AppRole;
+  passwordHash: string;
+}) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const username = normalizedEmail.split("@")[0]?.trim() || normalizedEmail;
+
+  getDatabase()
+    .prepare(
+      `INSERT INTO users (id, username, email, first_name, last_name, role, password_hash, must_change_password, active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)
+       ON CONFLICT(email) DO UPDATE SET
+         username = excluded.username,
+         first_name = excluded.first_name,
+         last_name = excluded.last_name,
+         role = excluded.role,
+         password_hash = excluded.password_hash,
+         must_change_password = 1,
+         active = 1`,
+    )
+    .run(
+      crypto.randomUUID(),
+      username,
+      normalizedEmail,
+      firstName.trim(),
+      lastName.trim(),
+      role,
+      passwordHash,
+      new Date().toISOString(),
+    );
+
+  return getUserByEmail(normalizedEmail);
+}
+
+export function updateUserActiveState(id: string, active: boolean) {
+  getDatabase()
+    .prepare(
+      `UPDATE users
+       SET active = ?
+       WHERE id = ?`,
+    )
+    .run(active ? 1 : 0, id);
+
+  return getUserById(id);
+}
+
+export function resetUserActivationById(id: string, passwordHash: string) {
+  getDatabase()
+    .prepare(
+      `UPDATE users
+       SET password_hash = ?, must_change_password = 1
+       WHERE id = ?`,
+    )
+    .run(passwordHash, id);
+
+  return getUserById(id);
 }
 
 export function insertSession(token: string, userId: string, expiresAt: string) {
