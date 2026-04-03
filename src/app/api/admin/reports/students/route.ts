@@ -5,7 +5,7 @@ import {
   userHasRole,
 } from "@/lib/auth";
 import { listUsers } from "@/lib/local-auth-db";
-import { listSubmissions } from "@/lib/store";
+import { listAssignments, listSubmissions } from "@/lib/store";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [users, submissions] = await Promise.all([listUsers(), listSubmissions()]);
+  const [users, submissions, assignments] = await Promise.all([
+    listUsers(),
+    listSubmissions(),
+    listAssignments(),
+  ]);
+  const assignmentMaxScore = new Map(assignments.map((assignment) => [assignment.id, assignment.maxScore]));
   const studentUsers = users.filter((user) => user.role === "student");
 
   const csvRows = [
@@ -33,7 +38,9 @@ export async function GET(request: Request) {
       "latest_submission_title",
       "latest_submission_status",
       "latest_score",
+      "highest_score",
       "average_score",
+      "latest_weightage_breakdown",
       "latest_submitted_at",
     ],
     ...studentUsers.map((user) => {
@@ -51,6 +58,16 @@ export async function GET(request: Request) {
         graded.length > 0
           ? graded.reduce((sum, submission) => sum + (submission.score ?? 0), 0) / graded.length
           : null;
+      const highestScore =
+        graded.length > 0
+          ? Math.max(...graded.map((submission) => submission.score ?? 0))
+          : null;
+      const latestWeightageBreakdown = latestSubmission
+        ? buildWeightageBreakdown(
+            latestSubmission.rubricBreakdown,
+            assignmentMaxScore.get(latestSubmission.assignmentId) ?? null,
+          )
+        : "";
 
       return [
         user.firstName,
@@ -66,7 +83,9 @@ export async function GET(request: Request) {
         latestSubmission?.score === null || latestSubmission?.score === undefined
           ? ""
           : String(latestSubmission.score),
+        highestScore === null ? "" : String(highestScore),
         averageScore === null ? "" : averageScore.toFixed(2),
+        latestWeightageBreakdown,
         latestSubmission?.createdAt ?? "",
       ];
     }),
@@ -92,4 +111,23 @@ function escapeCsvCell(value: string) {
   }
 
   return value;
+}
+
+function buildWeightageBreakdown(
+  rubricBreakdown: { criterion: string; score: number }[],
+  maxScore: number | null,
+) {
+  if (!Array.isArray(rubricBreakdown) || rubricBreakdown.length === 0) {
+    return "";
+  }
+
+  return rubricBreakdown
+    .map((item) => {
+      const percentage =
+        typeof maxScore === "number" && maxScore > 0
+          ? ` (${((item.score / maxScore) * 100).toFixed(1)}%)`
+          : "";
+      return `${item.criterion}: ${item.score}${maxScore ? `/${maxScore}` : ""}${percentage}`;
+    })
+    .join("; ");
 }
