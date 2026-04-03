@@ -39,10 +39,6 @@ export async function GET(request: Request) {
     const graded = studentSubmissions.filter(
       (submission) => typeof submission.score === "number",
     );
-    const averageScore =
-      graded.length > 0
-        ? graded.reduce((sum, submission) => sum + (submission.score ?? 0), 0) / graded.length
-        : null;
     const highestScore =
       graded.length > 0
         ? Math.max(...graded.map((submission) => submission.score ?? 0))
@@ -67,7 +63,6 @@ export async function GET(request: Request) {
       "Latest Submission Status": latestSubmission?.status ?? "",
       "Latest Score": latestSubmission?.score ?? "",
       "Highest Score": highestScore === null ? "" : highestScore,
-      "Average Score": averageScore === null ? "" : Number(averageScore.toFixed(2)),
       "Latest Weightage Breakdown": latestWeightageBreakdown,
       "Latest Submitted At": latestSubmission?.createdAt ?? "",
     };
