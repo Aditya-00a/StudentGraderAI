@@ -209,8 +209,11 @@ export function UserManagementPanel({
             <span className="font-mono text-xs uppercase tracking-[0.3em] text-slate-500">
               {users.length} total
             </span>
+            <a className="button-secondary text-sm" href="/api/admin/reports/students/excel">
+              Download Excel report
+            </a>
             <a className="button-secondary text-sm" href="/api/admin/reports/students">
-              Download student report
+              Download CSV report
             </a>
           </div>
         </div>
