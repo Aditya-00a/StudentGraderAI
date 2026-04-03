@@ -197,9 +197,14 @@ export function UserManagementPanel({
             <span className="pill">Invited users</span>
             <h2 className="text-2xl font-semibold text-slate-900">Student management</h2>
           </div>
-          <span className="font-mono text-xs uppercase tracking-[0.3em] text-slate-500">
-            {users.length} total
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-xs uppercase tracking-[0.3em] text-slate-500">
+              {users.length} total
+            </span>
+            <a className="button-secondary text-sm" href="/api/admin/reports/students">
+              Download student report
+            </a>
+          </div>
         </div>
 
         <div className="space-y-4">
