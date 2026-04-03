@@ -3,20 +3,26 @@
 import { useMemo, useState } from "react";
 import type {
   ArtifactPreview,
+  RubricBreakdownItem,
   SandboxRuntime,
   StudentProjectOverview,
   SubmissionChatMessage,
   SubmissionSandboxRun,
 } from "@/lib/types";
+import { formatScore } from "@/lib/utils";
 
 type SubmissionWorkspaceProps = {
   submissionId: string;
   assignmentTitle: string;
+  maxScore: number | null;
   studentName: string;
   projectName: string;
   createdAt: string;
   notes: string | null;
   githubUrl: string | null;
+  score: number | null;
+  gradingSummary: string | null;
+  rubricBreakdown: RubricBreakdownItem[];
   analyzedFiles: ArtifactPreview[];
   projectOverview: StudentProjectOverview | null;
   initialChatHistory: SubmissionChatMessage[];
@@ -26,11 +32,15 @@ type SubmissionWorkspaceProps = {
 export function SubmissionWorkspace({
   submissionId,
   assignmentTitle,
+  maxScore,
   studentName,
   projectName,
   createdAt,
   notes,
   githubUrl,
+  score,
+  gradingSummary,
+  rubricBreakdown,
   analyzedFiles,
   projectOverview,
   initialChatHistory,
@@ -155,8 +165,8 @@ export function SubmissionWorkspace({
           <h2 className="mt-4 text-2xl font-semibold text-slate-900">{assignmentTitle}</h2>
           <p className="mt-2 text-sm font-medium text-slate-500">{projectName}</p>
           <p className="mt-3 text-sm leading-7 text-slate-600">
-            This workspace is for testing and improving your project with Gemma. Grades stay visible
-            only to faculty and admins.
+            This workspace is for testing and improving your project with Gemma. You can review
+            your score summary here while faculty and admins keep the full grading view.
           </p>
 
           <dl className="mt-5 grid gap-3 text-sm">
@@ -188,6 +198,52 @@ export function SubmissionWorkspace({
               <p className="mt-3 text-sm leading-7 text-slate-700">{notes}</p>
             </div>
           ) : null}
+        </section>
+
+        <section className="glass-panel rounded-[1.75rem] p-5 sm:p-6">
+          <span className="pill">Score</span>
+          <h2 className="mt-4 text-xl font-semibold text-slate-900">Score summary</h2>
+          <div className="mt-5 rounded-[1.4rem] bg-slate-950 px-5 py-5 text-white">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-slate-400">
+              Final score
+            </p>
+            <p className="mt-3 text-4xl font-semibold">
+              {score === null ? "--" : formatScore(score)}
+              {maxScore ? <span className="ml-2 text-lg text-slate-400">/ {formatScore(maxScore)}</span> : null}
+            </p>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              {score === null
+                ? "Your score will appear here once grading finishes."
+                : gradingSummary ?? "Your score has been generated from the assignment rubric."}
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {rubricBreakdown.length === 0 ? (
+              <div className="rounded-[1rem] border border-dashed border-slate-300 bg-white/60 px-4 py-4 text-sm leading-7 text-slate-600">
+                Criterion scores will appear here once grading finishes.
+              </div>
+            ) : (
+              rubricBreakdown.map((item) => (
+                <div
+                  key={`${item.criterion}-${item.score}`}
+                  className="rounded-[1rem] border border-slate-200/80 bg-white/82 px-4 py-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                        Criterion
+                      </p>
+                      <p className="mt-2 text-sm font-medium leading-6 text-slate-900">
+                        {item.criterion}
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold text-slate-900">{formatScore(item.score)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </section>
 
         <section className="glass-panel rounded-[1.75rem] p-5 sm:p-6">
@@ -426,8 +482,8 @@ export function SubmissionWorkspace({
 
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-6 text-slate-500">
-              Grades stay hidden from students. This workspace is for testing, debugging, and
-              improving the project itself.
+              Use this workspace to understand your score, debug the project, and improve the
+              submission itself.
             </p>
             <button className="button-primary sm:min-w-40" type="submit" disabled={isChatting}>
               {isChatting ? "Gemma is thinking..." : "Send"}

@@ -8,7 +8,7 @@ import {
   isProfessorAccessConfigured,
 } from "@/lib/auth";
 import { SubmissionWorkspace } from "@/components/submission-workspace";
-import { getSubmissionById } from "@/lib/store";
+import { getAssignmentById, getSubmissionById } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance, getSubmissionDisplayTitle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +75,8 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
     notFound();
   }
 
+  const assignment = await getAssignmentById(submission.assignmentId);
+
   if (
     currentUser &&
     currentUser.role === "student" &&
@@ -106,8 +108,8 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
                 </h1>
                 <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
                   Chat with Gemma about your project, inspect sandbox run logs from the DGX, and
-                  keep improving the repository. Faculty and admins can review grading separately,
-                  but students do not see grading details here.
+                  keep improving the repository. Your score summary is visible here after grading,
+                  while faculty and admins keep the full review view.
                 </p>
               </div>
             </div>
@@ -143,11 +145,15 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
         <SubmissionWorkspace
           submissionId={submission.id}
           assignmentTitle={submission.assignmentTitle}
+          maxScore={assignment?.maxScore ?? null}
           studentName={submission.studentName}
           projectName={submission.projectName}
           createdAt={submission.createdAt}
           notes={submission.notes}
           githubUrl={submission.githubUrl}
+          score={submission.score}
+          gradingSummary={submission.gradingSummary}
+          rubricBreakdown={submission.rubricBreakdown}
           analyzedFiles={submission.analyzedFiles}
           projectOverview={submission.projectOverview}
           initialChatHistory={submission.chatHistory}
@@ -351,11 +357,15 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
       <SubmissionWorkspace
         submissionId={submission.id}
         assignmentTitle={submission.assignmentTitle}
+        maxScore={assignment?.maxScore ?? null}
         studentName={submission.studentName}
         projectName={submission.projectName}
         createdAt={submission.createdAt}
         notes={submission.notes}
         githubUrl={submission.githubUrl}
+        score={submission.score}
+        gradingSummary={submission.gradingSummary}
+        rubricBreakdown={submission.rubricBreakdown}
         analyzedFiles={submission.analyzedFiles}
         projectOverview={submission.projectOverview}
         initialChatHistory={submission.chatHistory}
