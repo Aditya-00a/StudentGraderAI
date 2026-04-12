@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUserFromCookieHeader, isLocalAuthEnabled, userHasRole } from "@/lib/auth";
+import { buildRequestUrl } from "@/lib/request-url";
 import { explainSandboxRunFailure } from "@/lib/sandbox-feedback";
-import { runGithubProjectSandboxCheck } from "@/lib/sandbox-runner";
+import { runGithubProjectSandboxCheck, stopSandboxPreview } from "@/lib/sandbox-runner";
 import {
   createSubmissionSandboxRun,
   getSubmissionById,
@@ -58,6 +59,13 @@ export async function POST(
     );
   }
 
+  await Promise.all(
+    submission.sandboxRuns
+      .map((run) => run.previewContainerName)
+      .filter((name): name is string => Boolean(name))
+      .map((name) => stopSandboxPreview(name)),
+  );
+
   const payload = await request.json().catch(() => null);
   const parsed = runSchema.safeParse(payload);
 
@@ -83,9 +91,15 @@ export async function POST(
       runCommand: parsed.data.runCommand || null,
     });
 
+    const previewUrl = result.previewHostPort
+      ? buildRequestUrl(request, `/api/submissions/${id}/runs/${run.id}/preview`).toString()
+      : null;
+
     const studentExplanation =
       result.exitCode === 0
-        ? "The DGX quick check finished successfully. You can still review the logs if you want more detail."
+        ? previewUrl
+          ? "The DGX quick check finished successfully, and a temporary preview is available through the sandbox."
+          : "The DGX quick check finished successfully. You can still review the logs if you want more detail."
         : await explainSandboxRunFailure({
             runtime: result.runtime,
             setupCommand: result.setupCommand,
@@ -104,6 +118,10 @@ export async function POST(
       studentExplanation,
       logs: result.logs,
       exitCode: result.exitCode,
+      previewUrl,
+      previewHostPort: result.previewHostPort ?? null,
+      previewContainerName: result.previewContainerName ?? null,
+      previewExpiresAt: result.previewExpiresAt ?? null,
       finishedAt: new Date().toISOString(),
     });
 

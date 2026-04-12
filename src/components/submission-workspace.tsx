@@ -359,6 +359,24 @@ export function SubmissionWorkspace({
                   <p className="mt-3 text-sm leading-7 text-slate-700">
                     {run.summary ?? "The DGX sandbox is still running."}
                   </p>
+                  {run.previewUrl ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <a
+                        className="button-secondary"
+                        href={run.previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open preview
+                      </a>
+                      <p className="text-xs leading-6 text-slate-500">
+                        Temporary sandbox preview
+                        {run.previewExpiresAt
+                          ? ` until ${new Date(run.previewExpiresAt).toLocaleString()}.`
+                          : "."}
+                      </p>
+                    </div>
+                  ) : null}
                   {run.studentExplanation ? (
                     <div className="mt-3 rounded-[1rem] border border-sky-200/80 bg-sky-50/85 px-4 py-3 text-sm leading-7 text-sky-950">
                       <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-sky-700">

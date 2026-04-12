@@ -62,6 +62,10 @@ export type SubmissionSandboxRun = {
   studentExplanation: string | null;
   logs: string;
   exitCode: number | null;
+  previewUrl?: string | null;
+  previewHostPort?: string | null;
+  previewContainerName?: string | null;
+  previewExpiresAt?: string | null;
   startedAt: string;
   finishedAt: string | null;
 };

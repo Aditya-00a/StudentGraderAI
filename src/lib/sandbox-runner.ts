@@ -27,6 +27,23 @@ type SandboxPlan = {
   heavyDependencyWarning: boolean;
 };
 
+type SandboxExecutionResult = {
+  logs: string;
+  exitCode: number;
+  previewHostPort?: string | null;
+  previewContainerName?: string | null;
+  previewExpiresAt?: string | null;
+};
+
+type SandboxRunResult = SandboxExecutionResult & {
+  runtime: SandboxRuntime;
+  setupCommand: string | null;
+  runCommand: string;
+  architectureEvidence: string[];
+  heavyDependencyWarning: boolean;
+  summary: string;
+};
+
 const runtimeImages: Record<Exclude<SandboxRuntime, "docker">, string> = {
   node: "node:22-bookworm-slim",
   python: "python:3.11-slim",
@@ -34,6 +51,7 @@ const runtimeImages: Record<Exclude<SandboxRuntime, "docker">, string> = {
 
 const shellPrefix =
   "set -e; if [ -f /etc/os-release ]; then . /etc/os-release >/dev/null 2>&1 || true; fi";
+const previewLifetimeMs = 1000 * 60 * 30;
 
 export async function runGithubProjectSandboxCheck({
   githubUrl,
@@ -45,7 +63,7 @@ export async function runGithubProjectSandboxCheck({
   runtime?: SandboxRuntime | null;
   setupCommand: string | null;
   runCommand?: string | null;
-}) {
+}): Promise<SandboxRunResult> {
   const repo = parseGithubRepository(githubUrl);
   if (!repo) {
     throw new Error("Use a public GitHub repository URL for DGX sandbox runs.");
@@ -166,7 +184,7 @@ async function runPackageBasedCheck({
   runtime: Exclude<SandboxRuntime, "docker">;
   setupCommand: string | null;
   runCommand: string;
-}) {
+}): Promise<SandboxExecutionResult> {
   const image = runtimeImages[runtime];
   const commands = [shellPrefix];
 
@@ -175,6 +193,14 @@ async function runPackageBasedCheck({
   }
 
   commands.push(runCommand);
+
+  if (shouldTreatAsServiceRun(runtime, runCommand)) {
+    return runPackageServiceCheck({
+      repoRoot,
+      runtime,
+      command: commands.join(" && "),
+    });
+  }
 
   return runDockerCommand({
     args: [
@@ -197,13 +223,57 @@ async function runPackageBasedCheck({
   });
 }
 
+async function runPackageServiceCheck({
+  repoRoot,
+  runtime,
+  command,
+}: {
+  repoRoot: string;
+  runtime: Exclude<SandboxRuntime, "docker">;
+  command: string;
+}): Promise<SandboxExecutionResult> {
+  const image = runtimeImages[runtime];
+  const containerName = `nyu-sps-sandbox-run-${crypto.randomUUID().slice(0, 12)}`;
+  const startResult = await runDockerCommand({
+    args: [
+      "run",
+      "-d",
+      "--name",
+      containerName,
+      "--cpus",
+      "4",
+      "--memory",
+      "8g",
+      "-v",
+      `${repoRoot}:/workspace`,
+      "-w",
+      "/workspace",
+      ...commonPreviewPortArgs(),
+      image,
+      "bash",
+      "-lc",
+      command,
+    ],
+    timeoutMs: 1000 * 60,
+  });
+
+  if (startResult.exitCode !== 0) {
+    return startResult;
+  }
+
+  return monitorServiceContainer({
+    containerName,
+    startupTimeoutMs: 1000 * 60 * 10,
+  });
+}
+
 async function runDockerArchitectureCheck({
   repoRoot,
   runCommand,
 }: {
   repoRoot: string;
   runCommand: string | null;
-}) {
+}): Promise<SandboxExecutionResult> {
   const tag = `nyu-sps-sandbox-${crypto.randomUUID().slice(0, 12)}`;
   const buildResult = await runDockerCommand({
     args: ["build", "-t", tag, repoRoot],
@@ -220,11 +290,16 @@ async function runDockerArchitectureCheck({
 
   if (!runCommand) {
     const serviceResult = await runDockerServiceCheck({ tag });
-    await removeDockerImage(tag);
+    if (serviceResult.exitCode !== 0) {
+      await removeDockerImage(tag);
+    }
 
     return {
       logs: [buildResult.logs, "", serviceResult.logs].filter(Boolean).join("\n").trim(),
       exitCode: serviceResult.exitCode,
+      previewHostPort: serviceResult.previewHostPort ?? null,
+      previewContainerName: serviceResult.previewContainerName ?? null,
+      previewExpiresAt: serviceResult.previewExpiresAt ?? null,
     };
   }
 
@@ -257,7 +332,7 @@ async function runDockerServiceCheck({
   tag,
 }: {
   tag: string;
-}) {
+}): Promise<SandboxExecutionResult> {
   const containerName = `nyu-sps-sandbox-run-${crypto.randomUUID().slice(0, 12)}`;
   const startResult = await runDockerCommand({
     args: [
@@ -280,78 +355,10 @@ async function runDockerServiceCheck({
     return startResult;
   }
 
-  try {
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await sleep(2_500);
-
-      const details = await inspectDockerContainer(containerName);
-      const logs = await readDockerLogs(containerName);
-
-      if (!details) {
-        return {
-          logs: [startResult.logs, logs].filter(Boolean).join("\n").trim(),
-          exitCode: 1,
-        };
-      }
-
-      if (details.status === "exited" || details.status === "dead") {
-        return {
-          logs: formatServiceLogs({
-            containerName,
-            logs,
-            publishedPorts: details.publishedPorts,
-            status: details.status,
-          }),
-          exitCode: details.exitCode ?? 1,
-        };
-      }
-
-      const reachableUrl = await findReachableServiceUrl(details.publishedPorts);
-      const looksReady = hasReadyServiceLogs(logs);
-
-      if (reachableUrl || details.health === "healthy" || looksReady) {
-        return {
-          logs: formatServiceLogs({
-            containerName,
-            logs,
-            publishedPorts: details.publishedPorts,
-            reachableUrl,
-            status: details.status,
-          }),
-          exitCode: 0,
-        };
-      }
-    }
-
-    const finalDetails = await inspectDockerContainer(containerName);
-    const finalLogs = await readDockerLogs(containerName);
-
-    if (finalDetails?.status === "running") {
-      return {
-        logs: formatServiceLogs({
-          containerName,
-          logs: finalLogs,
-          publishedPorts: finalDetails.publishedPorts,
-          status: finalDetails.status,
-          note:
-            "The container stayed up during the DGX startup check. This usually means the service booted successfully, even though it is designed to keep running.",
-        }),
-        exitCode: 0,
-      };
-    }
-
-    return {
-      logs: formatServiceLogs({
-        containerName,
-        logs: finalLogs,
-        publishedPorts: finalDetails?.publishedPorts ?? [],
-        status: finalDetails?.status ?? "unknown",
-      }),
-      exitCode: finalDetails?.exitCode ?? 1,
-    };
-  } finally {
-    await removeDockerContainer(containerName);
-  }
+  return monitorServiceContainer({
+    containerName,
+    startupTimeoutMs: 1000 * 60 * 3,
+  });
 }
 
 async function inspectDockerContainer(containerName: string) {
@@ -405,6 +412,104 @@ async function inspectDockerContainer(containerName: string) {
   }
 }
 
+async function monitorServiceContainer({
+  containerName,
+  startupTimeoutMs,
+}: {
+  containerName: string;
+  startupTimeoutMs: number;
+}): Promise<SandboxExecutionResult> {
+  const maxAttempts = Math.max(12, Math.ceil(startupTimeoutMs / 2_500));
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await sleep(2_500);
+
+    const details = await inspectDockerContainer(containerName);
+    const logs = await readDockerLogs(containerName);
+
+    if (!details) {
+      await removeDockerContainer(containerName);
+      return {
+        logs: logs || "The DGX sandbox could not inspect the container after startup.",
+        exitCode: 1,
+      };
+    }
+
+    if (details.status === "exited" || details.status === "dead") {
+      const exitCode = details.exitCode ?? 1;
+      await removeDockerContainer(containerName);
+      return {
+        logs: formatServiceLogs({
+          containerName,
+          logs,
+          publishedPorts: details.publishedPorts,
+          status: details.status,
+        }),
+        exitCode,
+      };
+    }
+
+    const reachablePort = await findReachableServicePort(details.publishedPorts);
+    const looksReady = hasReadyServiceLogs(logs);
+
+    if (reachablePort || details.health === "healthy" || looksReady) {
+      const previewHostPort =
+        reachablePort ??
+        details.publishedPorts.find((mapping) => Boolean(mapping.hostPort))?.hostPort ??
+        null;
+
+      return {
+        logs: formatServiceLogs({
+          containerName,
+          logs,
+          publishedPorts: details.publishedPorts,
+          reachableUrl: previewHostPort ? `http://127.0.0.1:${previewHostPort}` : null,
+          status: details.status,
+        }),
+        exitCode: 0,
+        previewHostPort,
+        previewContainerName: containerName,
+        previewExpiresAt: new Date(Date.now() + previewLifetimeMs).toISOString(),
+      };
+    }
+  }
+
+  const finalDetails = await inspectDockerContainer(containerName);
+  const finalLogs = await readDockerLogs(containerName);
+
+  if (finalDetails?.status === "running") {
+    const previewHostPort =
+      finalDetails.publishedPorts.find((mapping) => Boolean(mapping.hostPort))?.hostPort ?? null;
+
+    return {
+      logs: formatServiceLogs({
+        containerName,
+        logs: finalLogs,
+        publishedPorts: finalDetails.publishedPorts,
+        reachableUrl: previewHostPort ? `http://127.0.0.1:${previewHostPort}` : null,
+        status: finalDetails.status,
+        note:
+          "The container stayed up during the DGX startup check. This usually means the service booted successfully, even though it is designed to keep running.",
+      }),
+      exitCode: 0,
+      previewHostPort,
+      previewContainerName: containerName,
+      previewExpiresAt: new Date(Date.now() + previewLifetimeMs).toISOString(),
+    };
+  }
+
+  await removeDockerContainer(containerName);
+  return {
+    logs: formatServiceLogs({
+      containerName,
+      logs: finalLogs,
+      publishedPorts: finalDetails?.publishedPorts ?? [],
+      status: finalDetails?.status ?? "unknown",
+    }),
+    exitCode: finalDetails?.exitCode ?? 1,
+  };
+}
+
 async function readDockerLogs(containerName: string) {
   const logResult = await runDockerCommand({
     args: ["logs", "--tail", "200", containerName],
@@ -414,7 +519,7 @@ async function readDockerLogs(containerName: string) {
   return logResult.logs.trim();
 }
 
-async function findReachableServiceUrl(
+async function findReachableServicePort(
   publishedPorts: Array<{ containerPort: string; hostPort: string }>,
 ) {
   for (const mapping of publishedPorts) {
@@ -432,7 +537,7 @@ async function findReachableServiceUrl(
         });
 
         if (response.ok || response.status < 500) {
-          return url;
+          return mapping.hostPort;
         }
       } catch {
         continue;
@@ -484,6 +589,31 @@ async function removeDockerContainer(containerName: string) {
     args: ["rm", "-f", containerName],
     timeoutMs: 1000 * 30,
   }).catch(() => undefined);
+}
+
+export async function stopSandboxPreview(containerName: string) {
+  await removeDockerContainer(containerName);
+}
+
+function commonPreviewPortArgs() {
+  return ["3000", "4173", "5000", "5173", "8000", "8080"].flatMap((port) => ["-p", `127.0.0.1::${port}`]);
+}
+
+function shouldTreatAsServiceRun(
+  runtime: Exclude<SandboxRuntime, "docker">,
+  runCommand: string,
+) {
+  const command = runCommand.trim().toLowerCase();
+
+  if (runtime === "python") {
+    return /uvicorn|gunicorn|flask|fastapi|python .*server\.py|python .*app\.py|python .*main\.py/.test(
+      command,
+    );
+  }
+
+  return /npm start|npm run dev|npm run start|vite|next start|node .*server|serve\b/.test(
+    command,
+  );
 }
 
 function sleep(ms: number) {

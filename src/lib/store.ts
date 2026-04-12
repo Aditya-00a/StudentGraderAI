@@ -377,6 +377,10 @@ function normalizeSubmission(submission: Submission): Submission {
       ? submission.sandboxRuns.map((run) => ({
           ...run,
           studentExplanation: run.studentExplanation ?? null,
+          previewUrl: run.previewUrl ?? null,
+          previewHostPort: run.previewHostPort ?? null,
+          previewContainerName: run.previewContainerName ?? null,
+          previewExpiresAt: run.previewExpiresAt ?? null,
         }))
       : [],
   };
