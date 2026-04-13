@@ -29,6 +29,62 @@ function getTrimmedEnvValue(...keys: string[]) {
   return "";
 }
 
+async function readResponseBodySafe(response: Response) {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchOllamaWithRetry(
+  input: string,
+  init: RequestInit,
+  retries = 2,
+): Promise<Response> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(1000 * 60 * 3),
+      });
+
+      if (response.ok) {
+        return response;
+      }
+
+      const body = await readResponseBodySafe(response);
+      const message = `Ollama request failed: ${response.status} ${body}`.trim();
+
+      if (attempt === retries) {
+        throw new Error(message);
+      }
+
+      lastError = new Error(message);
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === retries) {
+        break;
+      }
+    }
+
+    await delay(1000 * (attempt + 1));
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error("Ollama request failed after multiple attempts.");
+}
+
 export function getAiProviderName(): ProviderName {
   const configured = getTrimmedEnvValue("AI_PROVIDER").toLowerCase();
 
@@ -148,7 +204,7 @@ export async function generateTextResponse({
     }
 
     const baseUrl = getTrimmedEnvValue("OLLAMA_BASE_URL") || "http://127.0.0.1:11434";
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+    const response = await fetchOllamaWithRetry(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -172,11 +228,6 @@ export async function generateTextResponse({
       }),
       cache: "no-store",
     });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Ollama request failed: ${response.status} ${body}`.trim());
-    }
 
     const payload = (await response.json()) as {
       message?: {
@@ -249,7 +300,7 @@ async function generateWithOllama({
     throw new Error("OLLAMA_MODEL is missing from the server environment.");
   }
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
+  const response = await fetchOllamaWithRetry(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -274,11 +325,6 @@ async function generateWithOllama({
     }),
     cache: "no-store",
   });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Ollama request failed: ${response.status} ${body}`.trim());
-  }
 
   const payload = (await response.json()) as {
     message?: {
