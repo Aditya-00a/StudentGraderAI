@@ -59,11 +59,39 @@ export async function gradeSubmission({
     )
     .join("\n");
 
+  const projectOverviewBlock = submission.projectOverview
+    ? [
+        "Project overview summary:",
+        submission.projectOverview.summary,
+        "",
+        `Detected stack: ${submission.projectOverview.detectedStack.join(", ") || "None detected"}`,
+        `What to do next: ${submission.projectOverview.whatToDoNext.join(" | ") || "None"}`,
+        `Watch out for: ${submission.projectOverview.watchOutFor.join(" | ") || "None"}`,
+      ].join("\n")
+    : "Project overview summary: Not available.";
+
+  const latestSandboxRun = submission.sandboxRuns[0] ?? null;
+  const sandboxRunBlock = latestSandboxRun
+    ? [
+        "Latest DGX sandbox run:",
+        `Status: ${latestSandboxRun.status}`,
+        `Runtime: ${latestSandboxRun.runtime}`,
+        `Setup command: ${latestSandboxRun.setupCommand ?? "None"}`,
+        `Run command: ${latestSandboxRun.runCommand}`,
+        `Exit code: ${latestSandboxRun.exitCode ?? "Unknown"}`,
+        `Run summary: ${latestSandboxRun.summary ?? "No summary available"}`,
+        `Student-facing explanation: ${latestSandboxRun.studentExplanation ?? "None"}`,
+        latestSandboxRun.logs
+          ? `Sandbox logs excerpt:\n${latestSandboxRun.logs.slice(0, 4000)}`
+          : "Sandbox logs excerpt: None captured.",
+      ].join("\n")
+    : "Latest DGX sandbox run: Not available.";
+
   const raw = await generateStructuredObject({
     geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     ollamaModel: process.env.OLLAMA_MODEL || "gemma3:27b",
     systemInstruction:
-      "You are a fair but demanding professor assistant. Grade only from the provided evidence. Never invent features that are not present. If the repository is incomplete, say that clearly and score conservatively. Feedback should be specific, constructive, and written in plain language a student can act on.",
+      "You are a fair but demanding professor assistant. Grade only from the provided evidence. Never invent features that are not present. Distinguish carefully between a weak project and limited sandbox runtime evidence. If the repository, documentation, tests, architecture, or sandbox startup evidence are strong, do not collapse the implementation score solely because a full live preview or production deployment was not available. Feedback should be specific, constructive, and written in plain language a student can act on.",
     prompt: [
       `Assignment title: ${assignment.title}`,
       `Course: ${assignment.courseCode}`,
@@ -74,10 +102,18 @@ export async function gradeSubmission({
       `Submission notes: ${submission.notes ?? "None provided"}`,
       `GitHub repository: ${githubRepositoryLabel ?? submission.githubUrl ?? "Not provided"}`,
       "Return a rigorous grade with concrete evidence. The rubric breakdown scores must stay within the assignment scale and should add up roughly to the final score without exceeding the maximum.",
+      "When implementation evidence is mixed, use these distinctions:",
+      "- Strong repository architecture, testing, CI, documentation, and successful sandbox startup/build evidence should earn meaningful credit.",
+      "- Missing environment variables, unavailable external ports, or incomplete live preview evidence should reduce confidence, but should not be treated the same as a broken or low-quality codebase.",
+      "- If runtime evidence is limited, say that explicitly in feedback instead of assuming the implementation is poor.",
       "Keep every strengths/improvements bullet under 280 characters and every rubric feedback note under 300 characters.",
       "",
       "Assignment brief:",
       assignment.description,
+      "",
+      projectOverviewBlock,
+      "",
+      sandboxRunBlock,
       "",
       "Submission evidence:",
       evidenceBlock,
