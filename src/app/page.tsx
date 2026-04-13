@@ -11,7 +11,6 @@ import {
   isProfessorAccessConfigured,
 } from "@/lib/auth";
 import { hasBlobStorageConfigured } from "@/lib/blob-storage";
-import { refreshOutdatedSubmissionGrades } from "@/lib/grading-refresh";
 import { listUsers } from "@/lib/local-auth-db";
 import { hasSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { listAssignments, listSubmissions } from "@/lib/store";
@@ -68,7 +67,7 @@ export default async function Home({ searchParams }: HomePageProps) {
   try {
     [assignments, submissions, invitedUsers] = await Promise.all([
       listAssignments(),
-      canManageUsers ? refreshOutdatedSubmissionGrades(6) : listSubmissions(),
+      listSubmissions(),
       canManageUsers ? listUsers() : Promise.resolve([]),
     ]);
   } catch (loadError) {
