@@ -378,7 +378,8 @@ function normalizeSubmission(submission: Submission): Submission {
     chatHistory: Array.isArray(submission.chatHistory) ? submission.chatHistory : [],
     sandboxRuns: Array.isArray(submission.sandboxRuns)
       ? submission.sandboxRuns.map((run) => ({
-          ...run,
+        ...run,
+        envVarNames: Array.isArray(run.envVarNames) ? run.envVarNames : [],
           studentExplanation: run.studentExplanation ?? null,
           previewUrl: run.previewUrl ?? null,
           previewHostPort: run.previewHostPort ?? null,

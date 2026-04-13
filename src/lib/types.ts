@@ -57,6 +57,7 @@ export type SubmissionSandboxRun = {
   runtime: SandboxRuntime;
   setupCommand: string | null;
   runCommand: string;
+  envVarNames?: string[];
   status: SandboxRunStatus;
   summary: string | null;
   studentExplanation: string | null;

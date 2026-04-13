@@ -55,6 +55,7 @@ export function SubmissionWorkspace({
   const [runtime, setRuntime] = useState<SandboxRuntime>("node");
   const [setupCommand, setSetupCommand] = useState("");
   const [runCommand, setRunCommand] = useState("npm run build");
+  const [envVarsText, setEnvVarsText] = useState("");
   const [runError, setRunError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showAdvancedRunOptions, setShowAdvancedRunOptions] = useState(false);
@@ -128,6 +129,7 @@ export function SubmissionWorkspace({
           runtime: showAdvancedRunOptions ? runtime : undefined,
           setupCommand: showAdvancedRunOptions ? nextSetupCommand : "",
           runCommand: showAdvancedRunOptions ? nextRunCommand : "",
+          envVarsText: showAdvancedRunOptions ? envVarsText : "",
         }),
       });
 
@@ -262,6 +264,11 @@ export function SubmissionWorkspace({
               projects, it can also try the repository Dockerfile directly.
             </div>
 
+            <div className="rounded-[1rem] border border-slate-200/80 bg-white/78 px-4 py-4 text-sm leading-7 text-slate-700">
+              Need secrets or config values? Open <strong>Advanced commands</strong> and add one
+              environment variable per line, such as <code>OPENAI_API_KEY=...</code>.
+            </div>
+
             {!githubUrl ? (
               <div className="rounded-[1rem] border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
                 A public GitHub repository is required for DGX runs.
@@ -320,9 +327,22 @@ export function SubmissionWorkspace({
                         ? "python app.py"
                         : runtime === "docker"
                           ? "Leave blank to use the container default command"
-                          : "npm run build"
+                      : "npm run build"
                     }
                   />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-slate-700">
+                  Environment variables
+                  <textarea
+                    className="field min-h-28"
+                    value={envVarsText}
+                    onChange={(event) => setEnvVarsText(event.target.value)}
+                    placeholder={"OPENAI_API_KEY=your-key\nCUSTOM_API_URL=https://example.com"}
+                  />
+                  <p className="text-xs leading-6 text-slate-500">
+                    Enter one <code>KEY=value</code> pair per line. Values are used for the run,
+                    and only the variable names are shown in the run history.
+                  </p>
                 </label>
                 <button
                   className="button-secondary w-full"
@@ -359,6 +379,11 @@ export function SubmissionWorkspace({
                   <p className="mt-3 text-sm leading-7 text-slate-700">
                     {run.summary ?? "The DGX sandbox is still running."}
                   </p>
+                  {run.envVarNames && run.envVarNames.length > 0 ? (
+                    <p className="mt-3 text-xs leading-6 text-slate-500">
+                      Environment variables used: {run.envVarNames.join(", ")}
+                    </p>
+                  ) : null}
                   {run.previewUrl ? (
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <a

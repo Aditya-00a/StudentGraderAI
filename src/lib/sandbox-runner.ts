@@ -58,11 +58,13 @@ export async function runGithubProjectSandboxCheck({
   runtime,
   setupCommand,
   runCommand,
+  envVars,
 }: {
   githubUrl: string;
   runtime?: SandboxRuntime | null;
   setupCommand: string | null;
   runCommand?: string | null;
+  envVars?: Record<string, string>;
 }): Promise<SandboxRunResult> {
   const repo = parseGithubRepository(githubUrl);
   if (!repo) {
@@ -86,12 +88,14 @@ export async function runGithubProjectSandboxCheck({
         ? await runDockerArchitectureCheck({
             repoRoot,
             runCommand: customDockerRunCommand(runCommand),
+            envVars: envVars ?? {},
           })
         : await runPackageBasedCheck({
             repoRoot,
             runtime: plan.runtime,
             setupCommand: plan.setupCommand,
             runCommand: plan.runCommand,
+            envVars: envVars ?? {},
           });
 
     return {
@@ -179,11 +183,13 @@ async function runPackageBasedCheck({
   runtime,
   setupCommand,
   runCommand,
+  envVars,
 }: {
   repoRoot: string;
   runtime: Exclude<SandboxRuntime, "docker">;
   setupCommand: string | null;
   runCommand: string;
+  envVars: Record<string, string>;
 }): Promise<SandboxExecutionResult> {
   const image = runtimeImages[runtime];
   const commands = [shellPrefix];
@@ -199,6 +205,7 @@ async function runPackageBasedCheck({
       repoRoot,
       runtime,
       command: commands.join(" && "),
+      envVars,
     });
   }
 
@@ -214,6 +221,7 @@ async function runPackageBasedCheck({
       `${repoRoot}:/workspace`,
       "-w",
       "/workspace",
+      ...dockerEnvArgs(envVars),
       image,
       "bash",
       "-lc",
@@ -227,10 +235,12 @@ async function runPackageServiceCheck({
   repoRoot,
   runtime,
   command,
+  envVars,
 }: {
   repoRoot: string;
   runtime: Exclude<SandboxRuntime, "docker">;
   command: string;
+  envVars: Record<string, string>;
 }): Promise<SandboxExecutionResult> {
   const image = runtimeImages[runtime];
   const containerName = `nyu-sps-sandbox-run-${crypto.randomUUID().slice(0, 12)}`;
@@ -248,6 +258,7 @@ async function runPackageServiceCheck({
       `${repoRoot}:/workspace`,
       "-w",
       "/workspace",
+      ...dockerEnvArgs(envVars),
       ...commonPreviewPortArgs(),
       image,
       "bash",
@@ -270,9 +281,11 @@ async function runPackageServiceCheck({
 async function runDockerArchitectureCheck({
   repoRoot,
   runCommand,
+  envVars,
 }: {
   repoRoot: string;
   runCommand: string | null;
+  envVars: Record<string, string>;
 }): Promise<SandboxExecutionResult> {
   const tag = `nyu-sps-sandbox-${crypto.randomUUID().slice(0, 12)}`;
   const buildResult = await runDockerCommand({
@@ -289,7 +302,7 @@ async function runDockerArchitectureCheck({
   }
 
   if (!runCommand) {
-    const serviceResult = await runDockerServiceCheck({ tag });
+    const serviceResult = await runDockerServiceCheck({ tag, envVars });
     if (serviceResult.exitCode !== 0) {
       await removeDockerImage(tag);
     }
@@ -310,6 +323,7 @@ async function runDockerArchitectureCheck({
     "4",
     "--memory",
     "12g",
+    ...dockerEnvArgs(envVars),
     tag,
   ];
 
@@ -330,8 +344,10 @@ async function runDockerArchitectureCheck({
 
 async function runDockerServiceCheck({
   tag,
+  envVars,
 }: {
   tag: string;
+  envVars: Record<string, string>;
 }): Promise<SandboxExecutionResult> {
   const containerName = `nyu-sps-sandbox-run-${crypto.randomUUID().slice(0, 12)}`;
   const startResult = await runDockerCommand({
@@ -345,6 +361,7 @@ async function runDockerServiceCheck({
       "4",
       "--memory",
       "12g",
+      ...dockerEnvArgs(envVars),
       "-P",
       tag,
     ],
@@ -597,6 +614,10 @@ export async function stopSandboxPreview(containerName: string) {
 
 function commonPreviewPortArgs() {
   return ["3000", "4173", "5000", "5173", "8000", "8080"].flatMap((port) => ["-p", `127.0.0.1::${port}`]);
+}
+
+function dockerEnvArgs(envVars: Record<string, string>) {
+  return Object.entries(envVars).flatMap(([key, value]) => ["-e", `${key}=${value}`]);
 }
 
 function shouldTreatAsServiceRun(

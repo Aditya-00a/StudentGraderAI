@@ -16,7 +16,42 @@ const runSchema = z.object({
   runtime: z.enum(["node", "python", "docker"]).optional(),
   setupCommand: z.string().trim().max(500).optional().default(""),
   runCommand: z.string().trim().max(500).optional().default(""),
+  envVarsText: z.string().max(8000).optional().default(""),
 });
+
+function parseEnvVars(input: string) {
+  const envVars: Record<string, string> = {};
+  const envVarNames: string[] = [];
+
+  for (const rawLine of input.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) {
+      throw new Error(
+        "Environment variables must use one KEY=value pair per line.",
+      );
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1);
+
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      throw new Error(`"${key}" is not a valid environment variable name.`);
+    }
+
+    envVars[key] = value;
+    envVarNames.push(key);
+  }
+
+  return {
+    envVars,
+    envVarNames,
+  };
+}
 
 export async function POST(
   request: Request,
@@ -73,10 +108,30 @@ export async function POST(
     return NextResponse.json({ error: "invalid-request" }, { status: 400 });
   }
 
+  let envVars: Record<string, string> = {};
+  let envVarNames: string[] = [];
+
+  try {
+    const parsedEnvVars = parseEnvVars(parsed.data.envVarsText);
+    envVars = parsedEnvVars.envVars;
+    envVarNames = parsedEnvVars.envVarNames;
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Environment variables could not be parsed.",
+      },
+      { status: 400 },
+    );
+  }
+
   const run = await createSubmissionSandboxRun(id, {
     runtime: parsed.data.runtime ?? "node",
     setupCommand: parsed.data.setupCommand || null,
     runCommand: parsed.data.runCommand || "Auto-detect",
+    envVarNames,
   });
 
   if (!run) {
@@ -89,6 +144,7 @@ export async function POST(
       runtime: parsed.data.runtime ?? null,
       setupCommand: parsed.data.setupCommand || null,
       runCommand: parsed.data.runCommand || null,
+      envVars,
     });
 
     const previewUrl = result.previewHostPort
@@ -113,6 +169,7 @@ export async function POST(
       runtime: result.runtime,
       setupCommand: result.setupCommand,
       runCommand: result.runCommand,
+      envVarNames,
       status: result.exitCode === 0 ? "completed" : "failed",
       summary: result.summary,
       studentExplanation,
