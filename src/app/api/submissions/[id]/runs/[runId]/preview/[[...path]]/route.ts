@@ -5,6 +5,47 @@ import { getSubmissionById } from "@/lib/store";
 
 export const runtime = "nodejs";
 
+function buildPreviewBasePath(id: string, runId: string) {
+  return `/api/submissions/${id}/runs/${runId}/preview`;
+}
+
+function prefixRootRelativePath(value: string, previewBasePath: string) {
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return value;
+  }
+
+  if (value.startsWith(previewBasePath)) {
+    return value;
+  }
+
+  return `${previewBasePath}${value}`;
+}
+
+function rewritePreviewHtml(html: string, previewBasePath: string) {
+  return html
+    .replace(
+      /(?<=\b(?:href|src|action|poster|data-href|data-src)=["'])\/(?!\/)/g,
+      `${previewBasePath}/`,
+    )
+    .replace(/(?<=url\(["']?)\/(?!\/)/g, `${previewBasePath}/`)
+    .replace(/(?<=["'])\/(?!\/)(?=(?:_next|assets|static|favicon|manifest|robots|sitemap))/g, `${previewBasePath}/`)
+    .replace(/(?<=\\")\/(?!\/)/g, `${previewBasePath}/`);
+}
+
+function rewriteLocationHeader(location: string, previewBasePath: string) {
+  try {
+    if (/^https?:\/\//i.test(location)) {
+      const url = new URL(location);
+      url.pathname = prefixRootRelativePath(url.pathname, previewBasePath);
+      return url.toString();
+    }
+
+    return prefixRootRelativePath(location, previewBasePath);
+  } catch {
+    return location;
+  }
+}
+
 async function proxyPreview(
   request: Request,
   context: { params: Promise<{ id: string; runId: string; path?: string[] }> },
@@ -49,6 +90,7 @@ async function proxyPreview(
   }
 
   const joinedPath = path.join("/");
+  const previewBasePath = buildPreviewBasePath(id, runId);
   const targetUrl = new URL(
     `/${joinedPath}${new URL(request.url).search}`,
     `http://127.0.0.1:${run.previewHostPort}`,
@@ -60,6 +102,7 @@ async function proxyPreview(
   forwardedHeaders.delete("content-length");
   forwardedHeaders.set("x-forwarded-host", new URL(request.url).host);
   forwardedHeaders.set("x-forwarded-proto", new URL(request.url).protocol.replace(":", ""));
+  forwardedHeaders.set("x-forwarded-prefix", previewBasePath);
 
   const init: RequestInit = {
     method: request.method,
@@ -76,6 +119,21 @@ async function proxyPreview(
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("content-length");
   responseHeaders.set("cache-control", "no-store");
+
+  const location = responseHeaders.get("location");
+  if (location) {
+    responseHeaders.set("location", rewriteLocationHeader(location, previewBasePath));
+  }
+
+  const contentType = responseHeaders.get("content-type") ?? "";
+  if (contentType.includes("text/html")) {
+    const html = await upstream.text();
+    return new Response(rewritePreviewHtml(html, previewBasePath), {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
+    });
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,
