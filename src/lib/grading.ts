@@ -11,6 +11,8 @@ const limits = {
   criterion: 80,
   rubricFeedback: 300,
   professorFeedback: 1_500,
+  maxEvidenceFiles: 18,
+  maxEvidenceChars: 45_000,
 } as const;
 
 const gradingResponseSchema = z.object({
@@ -54,7 +56,9 @@ export async function gradeSubmission({
     );
   }
 
-  const evidenceBlock = artifacts
+  const gradingArtifacts = selectArtifactsForGrading(artifacts);
+
+  const evidenceBlock = gradingArtifacts
     .map(
       (artifact) =>
         `FILE: ${artifact.path}\nSOURCE: ${artifact.source}\n\n${artifact.content}\n\n---`,
@@ -136,6 +140,57 @@ export async function gradeSubmission({
     })),
     professorFeedback: parsed.professorFeedback,
   } satisfies GradingResult;
+}
+
+function selectArtifactsForGrading(artifacts: CollectedArtifact[]) {
+  const scored = [...artifacts]
+    .map((artifact) => ({
+      artifact,
+      score: scoreArtifactForGrading(artifact.path),
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const selected: CollectedArtifact[] = [];
+  let totalChars = 0;
+
+  for (const entry of scored) {
+    if (selected.length >= limits.maxEvidenceFiles || totalChars >= limits.maxEvidenceChars) {
+      break;
+    }
+
+    const remaining = limits.maxEvidenceChars - totalChars;
+    const content = entry.artifact.content.slice(0, remaining);
+
+    if (content.trim().length < 20) {
+      continue;
+    }
+
+    selected.push({
+      ...entry.artifact,
+      content,
+    });
+    totalChars += content.length;
+  }
+
+  return selected;
+}
+
+function scoreArtifactForGrading(filePath: string) {
+  const path = filePath.toLowerCase();
+  let score = 0;
+
+  if (path.endsWith("readme.md") || path.endsWith("readme")) score += 100;
+  if (path.endsWith("dockerfile")) score += 95;
+  if (path.endsWith("docker-compose.yml") || path.endsWith("docker-compose.yaml")) score += 90;
+  if (path.endsWith("package.json") || path.endsWith("pnpm-lock.yaml") || path.endsWith("package-lock.json") || path.endsWith("yarn.lock")) score += 85;
+  if (path.includes("/src/")) score += 70;
+  if (path.includes("/app/") || path.includes("/apps/")) score += 60;
+  if (path.includes("config")) score += 55;
+  if (path.includes("api")) score += 45;
+  if (path.includes("test") || path.includes("__fixtures__")) score -= 25;
+  if (path.includes(".github/workflows")) score -= 15;
+
+  return score;
 }
 
 export function submissionNeedsGradeRefresh(submission: Submission) {
