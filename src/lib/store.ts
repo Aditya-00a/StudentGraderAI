@@ -21,6 +21,7 @@ import type {
   StoredUpload,
   Submission,
 } from "@/lib/types";
+import { currentGradingVersion } from "@/lib/grading";
 import { dataDirectory } from "@/lib/paths";
 
 const databasePath = `${dataDirectory}/student-grader-ai.json`;
@@ -371,6 +372,8 @@ function normalizeSubmission(submission: Submission): Submission {
     strengths: Array.isArray(submission.strengths) ? submission.strengths : [],
     improvements: Array.isArray(submission.improvements) ? submission.improvements : [],
     rubricBreakdown: Array.isArray(submission.rubricBreakdown) ? submission.rubricBreakdown : [],
+    gradingVersion: submission.gradingVersion ?? null,
+    gradedAt: submission.gradedAt ?? null,
     projectOverview: submission.projectOverview ?? null,
     chatHistory: Array.isArray(submission.chatHistory) ? submission.chatHistory : [],
     sandboxRuns: Array.isArray(submission.sandboxRuns)
@@ -420,6 +423,8 @@ export async function updateSubmissionResult(submissionId: string, result: Gradi
     submission.rubricBreakdown = result.rubricBreakdown;
     submission.professorFeedback = result.professorFeedback;
     submission.errorMessage = null;
+    submission.gradingVersion = currentGradingVersion;
+    submission.gradedAt = new Date().toISOString();
 
     return submission;
   });

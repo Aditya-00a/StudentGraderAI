@@ -3,6 +3,8 @@ import { generateStructuredObject, hasAiProviderConfigured } from "@/lib/ai-prov
 import { gradingResponseJsonSchema } from "@/lib/grading-schema";
 import type { Assignment, CollectedArtifact, GradingResult, Submission } from "@/lib/types";
 
+export const currentGradingVersion = 2;
+
 const limits = {
   gradingSummary: 1_200,
   listItem: 280,
@@ -134,6 +136,10 @@ export async function gradeSubmission({
     })),
     professorFeedback: parsed.professorFeedback,
   } satisfies GradingResult;
+}
+
+export function submissionNeedsGradeRefresh(submission: Submission) {
+  return submission.status === "graded" && (submission.gradingVersion ?? 0) < currentGradingVersion;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {

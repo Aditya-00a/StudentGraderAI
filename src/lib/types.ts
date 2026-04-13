@@ -99,6 +99,8 @@ export type Submission = {
   rubricBreakdown: RubricBreakdownItem[];
   professorFeedback: string | null;
   errorMessage: string | null;
+  gradingVersion?: number | null;
+  gradedAt?: string | null;
   projectOverview: StudentProjectOverview | null;
   chatHistory: SubmissionChatMessage[];
   sandboxRuns: SubmissionSandboxRun[];

@@ -8,7 +8,8 @@ import {
   isProfessorAccessConfigured,
 } from "@/lib/auth";
 import { SubmissionWorkspace } from "@/components/submission-workspace";
-import { getAssignmentById, getSubmissionById } from "@/lib/store";
+import { refreshSubmissionGradeIfNeeded } from "@/lib/grading-refresh";
+import { getAssignmentById } from "@/lib/store";
 import { formatDate, formatScore, getStatusAppearance, getSubmissionDisplayTitle } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
   let storageError: string | null = null;
 
   try {
-    submission = await getSubmissionById(id);
+    submission = await refreshSubmissionGradeIfNeeded(id);
   } catch (error) {
     storageError =
       error instanceof Error
