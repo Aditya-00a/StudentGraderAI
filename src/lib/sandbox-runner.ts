@@ -689,8 +689,16 @@ async function detectSandboxPlan({
   const runtime = preferredRuntime ?? (await detectRuntime(repoRoot, hints));
   const architectureEvidence = buildArchitectureEvidence(hints);
   const heavyDependencyWarning = hints.mentionsTorch || hints.mentionsTransformers;
-  const setupCommand = customSetupCommand?.trim() || (await detectSetupCommand(repoRoot, runtime, hints));
-  const runCommand = customRunCommand?.trim() || (await detectRunCommand(repoRoot, runtime, hints));
+  let setupCommand = customSetupCommand?.trim() || (await detectSetupCommand(repoRoot, runtime, hints));
+  let runCommand = customRunCommand?.trim() || (await detectRunCommand(repoRoot, runtime, hints));
+
+  if (runtime === "node") {
+    setupCommand = ensureNodePackageManagerAvailable(setupCommand, hints.packageManager);
+    runCommand = ensureNodePackageManagerAvailable(
+      runCommand,
+      inferNodePackageManagerFromCommand(runCommand) ?? hints.packageManager,
+    );
+  }
 
   if (!runCommand) {
     if (runtime === "docker") {
@@ -815,11 +823,11 @@ async function detectSetupCommand(
     const packageManager = hints.packageManager;
 
     if (packageManager === "pnpm") {
-      return "corepack enable && pnpm install";
+      return "pnpm install";
     }
 
     if (packageManager === "yarn") {
-      return "corepack enable && yarn install";
+      return "yarn install";
     }
 
     if (await fileExists(path.join(repoRoot, "package-lock.json"))) {
@@ -931,14 +939,69 @@ async function detectNodePackageManager(repoRoot: string): Promise<NodePackageMa
 
 function getNodeRunPrefix(packageManager: NodePackageManager) {
   if (packageManager === "pnpm") {
-    return "corepack enable && pnpm";
+    return "pnpm";
   }
 
   if (packageManager === "yarn") {
-    return "corepack enable && yarn";
+    return "yarn";
   }
 
   return "npm run";
+}
+
+function inferNodePackageManagerFromCommand(command: string | null | undefined): NodePackageManager | null {
+  const normalized = command?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (/\bpnpm\b/.test(normalized)) {
+    return "pnpm";
+  }
+
+  if (/\byarn\b/.test(normalized)) {
+    return "yarn";
+  }
+
+  if (/\bnpm\b/.test(normalized)) {
+    return "npm";
+  }
+
+  return null;
+}
+
+function ensureNodePackageManagerAvailable(
+  command: string | null | undefined,
+  packageManager: NodePackageManager | null,
+) {
+  if (!command || !packageManager || packageManager === "npm") {
+    return command ?? null;
+  }
+
+  const normalized = command.toLowerCase();
+  if (
+    normalized.includes("corepack ") ||
+    normalized.includes(`npm install -g ${packageManager}`) ||
+    normalized.includes(`npm i -g ${packageManager}`)
+  ) {
+    return command;
+  }
+
+  const bootstrap =
+    packageManager === "pnpm"
+      ? [
+          "if command -v pnpm >/dev/null 2>&1; then true;",
+          "elif command -v corepack >/dev/null 2>&1; then corepack enable && corepack prepare pnpm@latest --activate;",
+          "else npm install -g pnpm; fi",
+        ].join(" ")
+      : [
+          "if command -v yarn >/dev/null 2>&1; then true;",
+          "elif command -v corepack >/dev/null 2>&1; then corepack enable && corepack prepare yarn@stable --activate;",
+          "else npm install -g yarn; fi",
+        ].join(" ");
+
+  return `${bootstrap} && ${command}`;
 }
 
 function customDockerRunCommand(runCommand: string | null | undefined) {
